@@ -1,0 +1,223 @@
+
+### `package.json`
+```json
+{
+  "name": "passively-push-backend",
+  "version": "1.0.0",
+  "description": "Standalone backend for Passively Push Engine",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "generate-vapid": "web-push generate-vapid-keys"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "web-push": "^3.6.7"
+  }
+}
+```
+
+### `.env.example`
+```env
+PORT=3001
+# PostgreSQL Connection String (e.g., from Render/Supabase)
+DATABASE_URL=postgresql://user:password@host:5432/dbname
+# Generate these by running: npx web-push generate-vapid-keys
+VAPID_PUBLIC_KEY=your_public_key_here
+VAPID_PRIVATE_KEY=your_private_key_here
+# Admin email for VAPID identification
+VAPID_SUBJECT=mailto:admin@passivelyplus.com
+# Password for the admin dashboard
+ADMIN_PASSWORD=passively2024
+```
+
+### `server.js`
+```javascript
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+const webpush = require("web-push");
+const pushRoutes = require("./routes/pushRoutes");
+
+const app = express();
+const PORT = process.env.PORT || 3001;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Configure Web Push
+webpush.setVapidDetails(
+  process.env.VAPID_SUBJECT || "mailto:admin@example.com",
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
+
+// Routes
+app.use("/api", pushRoutes);
+
+// Health Check
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok", message: "Push Engine Backend is running" });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Passively Push Engine running on port ${PORT}`);
+});
+```
+
+### `config/db.js`
+```javascript
+const { Pool } = require("pg");
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+});
+
+// Initialize database schema
+const initDB = async () => {
+  const query = `
+    CREATE TABLE IF NOT EXISTS subscribers (
+      id SERIAL PRIMARY KEY,
+      endpoint TEXT UNIQUE NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      location_id TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `;
+  try {
+    await pool.query(query);
+    console.log("✅ Database schema initialized");
+  } catch (err) {
+    console.error("❌ Database initialization error:", err);
+  }
+};
+
+initDB();
+
+module.exports = {
+  query: (text, params) => pool.query(text, params),
+};
+```
+
+### `routes/pushRoutes.js`
+```javascript
+const express = require("express");
+const router = express.Router();
+const pushController = require("../controllers/pushController");
+
+// Middleware to check admin password
+const requireAuth = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || authHeader !== `Bearer ${process.env.ADMIN_PASSWORD}`) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+};
+
+router.post("/subscribe", pushController.subscribe);
+router.post("/send-notification", requireAuth, pushController.sendNotification);
+router.get("/subscribers", requireAuth, pushController.getSubscribers);
+
+module.exports = router;
+```
+
+### `controllers/pushController.js`
+```javascript
+const db = require("../config/db");
+const webpush = require("web-push");
+
+exports.subscribe = async (req, res) => {
+  const { subscription, location_id } = req.body;
+
+  if (!subscription || !subscription.endpoint) {
+    return res.status(400).json({ error: "Invalid subscription object" });
+  }
+
+  try {
+    const { endpoint, keys } = subscription;
+    await db.query(
+      `INSERT INTO subscribers (endpoint, p256dh, auth, location_id) 
+       VALUES ($1, $2, $3, $4) 
+       ON CONFLICT (endpoint) DO NOTHING`,
+      [endpoint, keys.p256dh, keys.auth, location_id || "default"]
+    );
+    res.status(201).json({ message: "Subscribed successfully" });
+  } catch (error) {
+    console.error("Subscription error:", error);
+    res.status(500).json({ error: "Database error" });
+  }
+};
+
+exports.sendNotification = async (req, res) => {
+  const { title, body, url, icon } = req.body;
+  const payload = JSON.stringify({ title, body, url, icon });
+
+  try {
+    const { rows } = await db.query("SELECT endpoint, p256dh, auth FROM subscribers");
+    
+    let successCount = 0;
+    const sendPromises = rows.map(async (sub) => {
+      const pushSubscription = {
+        endpoint: sub.endpoint,
+        keys: { p256dh: sub.p256dh, auth: sub.auth },
+      };
+
+      try {
+        await webpush.sendNotification(pushSubscription, payload);
+        successCount++;
+      } catch (err) {
+        if (err.statusCode === 404 || err.statusCode === 410) {
+          // Subscription expired or unsubscribed, remove from DB
+          await db.query("DELETE FROM subscribers WHERE endpoint = $1", [sub.endpoint]);
+        }
+      }
+    });
+
+    await Promise.all(sendPromises);
+    res.status(200).json({ message: "Notifications sent", sent: successCount, total: rows.length });
+  } catch (error) {
+    console.error("Broadcast error:", error);
+    res.status(500).json({ error: "Failed to send notifications" });
+  }
+};
+
+exports.getSubscribers = async (req, res) => {
+  try {
+    const { rows } = await db.query("SELECT COUNT(*) FROM subscribers");
+    res.status(200).json({ count: parseInt(rows[0].count, 10) });
+  } catch (error) {
+    res.status(500).json({ error: "Database error" });
+  }
+};
+```
+
+### `README.md`
+```markdown
+# Passively Push Engine Backend
+
+## Local Setup
+1. Run `npm install`
+2. Run `npm run generate-vapid` to get your public and private keys.
+3. Rename `.env.example` to `.env` and fill in your VAPID keys and PostgreSQL database URL.
+4. Run `npm run dev` to start the server.
+
+## Render Deployment
+1. Push this code to a GitHub repository.
+2. In Render, create a new **Web Service** connected to your repo.
+3. Create a **PostgreSQL** database in Render and copy the Internal Database URL.
+4. Set the Build Command: `npm install`
+5. Set the Start Command: `npm start`
+6. Add Environment Variables in Render:
+   - `DATABASE_URL` (paste your Render DB URL)
+   - `VAPID_PUBLIC_KEY`
+   - `VAPID_PRIVATE_KEY`
+   - `ADMIN_PASSWORD`
+7. Deploy! Your backend is now live.
+```
