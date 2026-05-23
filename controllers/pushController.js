@@ -11,13 +11,21 @@ exports.subscribe = async (req, res) => {
   }
 
   try {
+
     const { endpoint, keys } = subscription;
 
     await db.query(
-      `INSERT INTO subscribers
-      (endpoint, p256dh, auth, location_id)
+      `
+      INSERT INTO subscribers (
+        endpoint,
+        p256dh,
+        auth,
+        location_id
+      )
       VALUES ($1, $2, $3, $4)
-      ON CONFLICT (endpoint) DO NOTHING`,
+      ON CONFLICT (endpoint)
+      DO NOTHING
+      `,
       [
         endpoint,
         keys.p256dh,
@@ -29,7 +37,9 @@ exports.subscribe = async (req, res) => {
     res.status(201).json({
       message: "Subscribed successfully"
     });
+
   } catch (error) {
+
     console.error("Subscription error:", error);
 
     res.status(500).json({
@@ -39,7 +49,13 @@ exports.subscribe = async (req, res) => {
 };
 
 exports.sendNotification = async (req, res) => {
-  const { title, body, url, icon } = req.body;
+
+  const {
+    title,
+    body,
+    url,
+    icon
+  } = req.body;
 
   const payload = JSON.stringify({
     title,
@@ -49,13 +65,36 @@ exports.sendNotification = async (req, res) => {
   });
 
   try {
-    const { rows } = await db.query(
-      "SELECT endpoint, p256dh, auth FROM subscribers"
-    );
+
+    let query;
+    let params = [];
+
+    // MASTER ADMIN
+    if (req.user.role === "master_admin") {
+
+      query = `
+        SELECT endpoint, p256dh, auth
+        FROM subscribers
+      `;
+
+    } else {
+
+      // LANDLORD TENANT
+      query = `
+        SELECT endpoint, p256dh, auth
+        FROM subscribers
+        WHERE location_id = $1
+      `;
+
+      params = [req.user.location_id];
+    }
+
+    const { rows } = await db.query(query, params);
 
     let successCount = 0;
 
     const sendPromises = rows.map(async (sub) => {
+
       const pushSubscription = {
         endpoint: sub.endpoint,
         keys: {
@@ -65,19 +104,32 @@ exports.sendNotification = async (req, res) => {
       };
 
       try {
+
         await webpush.sendNotification(
           pushSubscription,
           payload
         );
 
         successCount++;
+
       } catch (err) {
+
+        console.error(
+          "Push send error:",
+          err.statusCode
+        );
+
+        // Remove expired subscriptions
         if (
           err.statusCode === 404 ||
           err.statusCode === 410
         ) {
+
           await db.query(
-            "DELETE FROM subscribers WHERE endpoint = $1",
+            `
+            DELETE FROM subscribers
+            WHERE endpoint = $1
+            `,
             [sub.endpoint]
           );
         }
@@ -93,6 +145,7 @@ exports.sendNotification = async (req, res) => {
     });
 
   } catch (error) {
+
     console.error("Broadcast error:", error);
 
     res.status(500).json({
@@ -102,9 +155,33 @@ exports.sendNotification = async (req, res) => {
 };
 
 exports.getSubscribers = async (req, res) => {
+
   try {
+
+    let query;
+    let params = [];
+
+    // MASTER ADMIN
+    if (req.user.role === "master_admin") {
+
+      query = `
+        SELECT COUNT(*) FROM subscribers
+      `;
+
+    } else {
+
+      // LANDLORD TENANT
+      query = `
+        SELECT COUNT(*) FROM subscribers
+        WHERE location_id = $1
+      `;
+
+      params = [req.user.location_id];
+    }
+
     const { rows } = await db.query(
-      "SELECT COUNT(*) FROM subscribers"
+      query,
+      params
     );
 
     res.status(200).json({
@@ -112,6 +189,12 @@ exports.getSubscribers = async (req, res) => {
     });
 
   } catch (error) {
+
+    console.error(
+      "Subscriber count error:",
+      error
+    );
+
     res.status(500).json({
       error: "Database error"
     });
