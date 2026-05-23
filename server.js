@@ -4,35 +4,17 @@ const express = require("express");
 const cors = require("cors");
 const webpush = require("web-push");
 const bcrypt = require("bcryptjs");
-const crypto = require("crypto");
-const { Pool } = require("pg");
+const jwt = require("jsonwebtoken");
+const { v4: uuidv4 } = require("uuid");
 
 const pushRoutes = require("./routes/pushRoutes");
+const pool = require("./config/db");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-/* ---------------------------
-   DATABASE CONNECTION
----------------------------- */
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
-
-/* ---------------------------
-   MIDDLEWARE
----------------------------- */
-
 app.use(cors());
 app.use(express.json());
-
-/* ---------------------------
-   WEB PUSH CONFIG
----------------------------- */
 
 webpush.setVapidDetails(
   process.env.VAPID_SUBJECT || "mailto:admin@example.com",
@@ -40,26 +22,26 @@ webpush.setVapidDetails(
   process.env.VAPID_PRIVATE_KEY
 );
 
-/* ---------------------------
-   PUSH ROUTES
----------------------------- */
-
 app.use("/api", pushRoutes);
 
-/* ---------------------------
-   HEALTH CHECK
----------------------------- */
+/*
+========================================
+HEALTH CHECK
+========================================
+*/
 
 app.get("/health", (req, res) => {
   res.status(200).json({
     status: "ok",
-    message: "Passively Push Engine running",
+    message: "Passively Push Engine running"
   });
 });
 
-/* ---------------------------
-   USER SIGNUP
----------------------------- */
+/*
+========================================
+USER SIGNUP
+========================================
+*/
 
 app.post("/api/signup", async (req, res) => {
   try {
@@ -67,11 +49,10 @@ app.post("/api/signup", async (req, res) => {
 
     if (!email || !password) {
       return res.status(400).json({
-        error: "Email and password required",
+        error: "Email and password required"
       });
     }
 
-    // Check if user exists
     const existingUser = await pool.query(
       "SELECT * FROM users WHERE email = $1",
       [email]
@@ -79,96 +60,118 @@ app.post("/api/signup", async (req, res) => {
 
     if (existingUser.rows.length > 0) {
       return res.status(400).json({
-        error: "User already exists",
+        error: "User already exists"
       });
     }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 10);
+    const password_hash = await bcrypt.hash(password, 10);
 
-    // Generate unique user ID
-    const userId = crypto.randomBytes(8).toString("hex");
+    const user_id = `user_${uuidv4().replace(/-/g, "").substring(0, 12)}`;
 
-    // Save user
-    await pool.query(
+    const newUser = await pool.query(
       `
       INSERT INTO users (user_id, email, password_hash)
       VALUES ($1, $2, $3)
+      RETURNING id, user_id, email, created_at
       `,
-      [userId, email, passwordHash]
+      [user_id, email, password_hash]
     );
 
-    console.log(`[SIGNUP] New user created: ${email}`);
+    const token = jwt.sign(
+      {
+        user_id: newUser.rows[0].user_id,
+        email: newUser.rows[0].email
+      },
+      process.env.JWT_SECRET || "supersecretjwt",
+      { expiresIn: "30d" }
+    );
 
     res.status(201).json({
       success: true,
-      userId,
+      token,
+      user: newUser.rows[0]
     });
+
   } catch (err) {
     console.error("[SIGNUP ERROR]", err);
 
     res.status(500).json({
-      error: "Signup failed",
+      error: "Signup failed"
     });
   }
 });
 
-/* ---------------------------
-   USER LOGIN
----------------------------- */
+/*
+========================================
+USER LOGIN
+========================================
+*/
 
 app.post("/api/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user
-    const result = await pool.query(
+    const userResult = await pool.query(
       "SELECT * FROM users WHERE email = $1",
       [email]
     );
 
-    if (result.rows.length === 0) {
+    if (userResult.rows.length === 0) {
       return res.status(401).json({
-        error: "Invalid credentials",
+        error: "Invalid credentials"
       });
     }
 
-    const user = result.rows[0];
+    const user = userResult.rows[0];
 
-    // Compare password
-    const validPassword = await bcrypt.compare(
+    const passwordMatch = await bcrypt.compare(
       password,
       user.password_hash
     );
 
-    if (!validPassword) {
+    if (!passwordMatch) {
       return res.status(401).json({
-        error: "Invalid credentials",
+        error: "Invalid credentials"
       });
     }
 
-    console.log(`[LOGIN] ${email} logged in`);
+    const token = jwt.sign(
+      {
+        user_id: user.user_id,
+        email: user.email
+      },
+      process.env.JWT_SECRET || "supersecretjwt",
+      { expiresIn: "30d" }
+    );
 
-    res.json({
+    res.status(200).json({
       success: true,
-      userId: user.user_id,
-      email: user.email,
+      token,
+      user: {
+        user_id: user.user_id,
+        email: user.email,
+        created_at: user.created_at
+      }
     });
+
   } catch (err) {
     console.error("[LOGIN ERROR]", err);
 
     res.status(500).json({
-      error: "Login failed",
+      error: "Login failed"
     });
   }
 });
 
-/* ---------------------------
-   TEMP MIGRATION ROUTE
----------------------------- */
+/*
+========================================
+TEMPORARY USER TABLE MIGRATION
+========================================
+*/
 
 app.get("/api/run-user-migration", async (req, res) => {
   try {
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -183,20 +186,24 @@ app.get("/api/run-user-migration", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Users table created successfully",
+      message: "Users table created successfully"
     });
+
   } catch (err) {
+
     console.error("[ERROR] Running migration:", err);
 
     res.status(500).json({
-      error: "Database migration failed",
+      error: "Database migration failed"
     });
   }
 });
 
-/* ---------------------------
-   START SERVER
----------------------------- */
+/*
+========================================
+START SERVER
+========================================
+*/
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
