@@ -13,14 +13,32 @@ const pool = require("./config/db");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+/*
+========================================
+MIDDLEWARE
+========================================
+*/
+
 app.use(cors());
 app.use(express.json());
+
+/*
+========================================
+WEB PUSH CONFIG
+========================================
+*/
 
 webpush.setVapidDetails(
   process.env.VAPID_SUBJECT || "mailto:admin@example.com",
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
+
+/*
+========================================
+API ROUTES
+========================================
+*/
 
 app.use("/api", pushRoutes);
 
@@ -45,6 +63,7 @@ USER SIGNUP
 
 app.post("/api/signup", async (req, res) => {
   try {
+
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -66,7 +85,9 @@ app.post("/api/signup", async (req, res) => {
 
     const password_hash = await bcrypt.hash(password, 10);
 
-    const user_id = `user_${uuidv4().replace(/-/g, "").substring(0, 12)}`;
+    const user_id =
+      "user_" +
+      uuidv4().replace(/-/g, "").substring(0, 12);
 
     const newUser = await pool.query(
       `
@@ -83,7 +104,9 @@ app.post("/api/signup", async (req, res) => {
         email: newUser.rows[0].email
       },
       process.env.JWT_SECRET || "supersecretjwt",
-      { expiresIn: "30d" }
+      {
+        expiresIn: "30d"
+      }
     );
 
     res.status(201).json({
@@ -93,11 +116,13 @@ app.post("/api/signup", async (req, res) => {
     });
 
   } catch (err) {
+
     console.error("[SIGNUP ERROR]", err);
 
     res.status(500).json({
       error: "Signup failed"
     });
+
   }
 });
 
@@ -109,6 +134,7 @@ USER LOGIN
 
 app.post("/api/login", async (req, res) => {
   try {
+
     const { email, password } = req.body;
 
     const userResult = await pool.query(
@@ -141,7 +167,9 @@ app.post("/api/login", async (req, res) => {
         email: user.email
       },
       process.env.JWT_SECRET || "supersecretjwt",
-      { expiresIn: "30d" }
+      {
+        expiresIn: "30d"
+      }
     );
 
     res.status(200).json({
@@ -155,17 +183,97 @@ app.post("/api/login", async (req, res) => {
     });
 
   } catch (err) {
+
     console.error("[LOGIN ERROR]", err);
 
     res.status(500).json({
       error: "Login failed"
     });
+
   }
 });
 
 /*
 ========================================
-TEMPORARY USER TABLE MIGRATION
+JWT AUTH MIDDLEWARE
+========================================
+*/
+
+const authenticateToken = (req, res, next) => {
+
+  const authHeader = req.headers["authorization"];
+
+  const token =
+    authHeader &&
+    authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Access denied"
+    });
+  }
+
+  jwt.verify(
+    token,
+    process.env.JWT_SECRET || "supersecretjwt",
+    (err, user) => {
+
+      if (err) {
+        return res.status(403).json({
+          error: "Invalid token"
+        });
+      }
+
+      req.user = user;
+
+      next();
+    }
+  );
+};
+
+/*
+========================================
+PROTECTED USER PROFILE ROUTE
+========================================
+*/
+
+app.get("/api/me", authenticateToken, async (req, res) => {
+  try {
+
+    const result = await pool.query(
+      `
+      SELECT user_id, email, created_at
+      FROM users
+      WHERE user_id = $1
+      `,
+      [req.user.user_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: "User not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      user: result.rows[0]
+    });
+
+  } catch (err) {
+
+    console.error("[ME ERROR]", err);
+
+    res.status(500).json({
+      error: "Failed to fetch user"
+    });
+
+  }
+});
+
+/*
+========================================
+USER TABLE MIGRATION
 ========================================
 */
 
@@ -196,6 +304,40 @@ app.get("/api/run-user-migration", async (req, res) => {
     res.status(500).json({
       error: "Database migration failed"
     });
+
+  }
+});
+
+/*
+========================================
+SUBSCRIBER USER_ID MIGRATION
+========================================
+*/
+
+app.get("/api/run-subscriber-user-migration", async (req, res) => {
+  try {
+
+    await pool.query(`
+      ALTER TABLE subscribers
+      ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
+    `);
+
+    console.log("[MIGRATION] user_id added to subscribers table");
+
+    res.json({
+      success: true,
+      message: "user_id column added successfully"
+    });
+
+  } catch (err) {
+
+    console.error("[MIGRATION ERROR]", err);
+
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+
   }
 });
 
