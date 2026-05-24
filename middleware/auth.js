@@ -3,11 +3,6 @@ const jwt = require(“jsonwebtoken”);
 const authenticateUser = (req, res, next) => {
 try {
 
-/*
-========================================
-GET AUTH HEADER
-========================================
-*/
 const authHeader =
   req.headers.authorization ||
   req.headers.Authorization;
@@ -15,11 +10,6 @@ console.log(
   "[AUTH] Incoming Authorization Header:",
   authHeader
 );
-/*
-========================================
-VALIDATE HEADER FORMAT
-========================================
-*/
 if (
   !authHeader ||
   !authHeader.startsWith("Bearer ")
@@ -31,11 +21,6 @@ if (
     error: "Forbidden"
   });
 }
-/*
-========================================
-EXTRACT TOKEN
-========================================
-*/
 const token = authHeader.split(" ")[1];
 console.log(
   "[AUTH] Extracted Token:",
@@ -49,11 +34,6 @@ if (!token) {
     error: "Forbidden"
   });
 }
-/*
-========================================
-VERIFY JWT
-========================================
-*/
 const decoded = jwt.verify(
   token,
   process.env.JWT_SECRET || "supersecretjwt"
@@ -62,11 +42,6 @@ console.log(
   "[AUTH] JWT Verified Successfully:",
   decoded
 );
-/*
-========================================
-ATTACH USER
-========================================
-*/
 req.user = decoded;
 next();
 
