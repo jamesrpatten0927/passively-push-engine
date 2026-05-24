@@ -1,48 +1,88 @@
-require('dotenv').config();
+const jwt = require(“jsonwebtoken”);
 
 const authenticateUser = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+try {
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({
-      error: 'Unauthorized'
-    });
-  }
-
-  const token = authHeader.split(' ')[1];
-
-  if (token === process.env.MASTER_ADMIN_PASSWORD) {
-    req.user = {
-      role: 'master_admin',
-      location_id: 'master'
-    };
-
-    return next();
-  }
-
-  if (token === process.env.TENANT_PASSWORD) {
-
-    const locationId = req.headers['x-location-id'];
-
-    if (!locationId) {
-      return res.status(400).json({
-        error: 'Missing x-location-id header'
-      });
-    }
-
-    req.user = {
-      role: 'landlord',
-      location_id: locationId
-    };
-
-    return next();
-  }
-
+/*
+========================================
+GET AUTH HEADER
+========================================
+*/
+const authHeader =
+  req.headers.authorization ||
+  req.headers.Authorization;
+console.log(
+  "[AUTH] Incoming Authorization Header:",
+  authHeader
+);
+/*
+========================================
+VALIDATE HEADER FORMAT
+========================================
+*/
+if (
+  !authHeader ||
+  !authHeader.startsWith("Bearer ")
+) {
+  console.log(
+    "[AUTH] Missing or malformed Bearer token"
+  );
   return res.status(403).json({
-    error: 'Forbidden'
+    error: "Forbidden"
   });
+}
+/*
+========================================
+EXTRACT TOKEN
+========================================
+*/
+const token = authHeader.split(" ")[1];
+console.log(
+  "[AUTH] Extracted Token:",
+  token
+);
+if (!token) {
+  console.log(
+    "[AUTH] Token extraction failed"
+  );
+  return res.status(403).json({
+    error: "Forbidden"
+  });
+}
+/*
+========================================
+VERIFY JWT
+========================================
+*/
+const decoded = jwt.verify(
+  token,
+  process.env.JWT_SECRET || "supersecretjwt"
+);
+console.log(
+  "[AUTH] JWT Verified Successfully:",
+  decoded
+);
+/*
+========================================
+ATTACH USER
+========================================
+*/
+req.user = decoded;
+next();
+
+} catch (err) {
+
+console.error(
+  "[AUTH ERROR]",
+  err.message
+);
+return res.status(403).json({
+  error: "Forbidden"
+});
+
+}
 };
 
 module.exports = {
-  authenticateUser
+authenticateUser
 };
