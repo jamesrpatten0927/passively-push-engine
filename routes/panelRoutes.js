@@ -1,10 +1,8 @@
-const express = require(“express”);
+const express = require("express");
 
 const router = express.Router();
 
-router.get(”/:panelId”, async (req, res) => {
-try {
-const { panelId } = req.params;
+router.get("/", async (req, res) => {try {const { panelId } = req.params;
 
 return res.status(200).json({
   success: true,
@@ -12,19 +10,9 @@ return res.status(200).json({
   title: "Test Panel"
 });
 
-} catch (err) {
-return res.status(500).json({
-success: false,
-error: “Failed to fetch panel”
-});
-}
-});
+} catch (err) {return res.status(500).json({success: false,error: "Failed to fetch panel"});}});
 
-router.post(”/create”, async (req, res) => {
-try {
-const panelId =
-“panel_” +
-Math.random().toString(36).substring(2, 10);
+router.post("/create", async (req, res) => {try {const panelId ="panel_" +Math.random().toString(36).substring(2, 10);
 
 return res.status(201).json({
   success: true,
@@ -33,12 +21,6 @@ return res.status(201).json({
   }
 });
 
-} catch (err) {
-return res.status(500).json({
-success: false,
-error: “Failed to create panel”
-});
-}
-});
+} catch (err) {return res.status(500).json({success: false,error: "Failed to create panel"});}});
 
 module.exports = router;
