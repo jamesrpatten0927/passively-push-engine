@@ -1,57 +1,10 @@
 const express = require(“express”);
+
 const router = express.Router();
 
 /*
 
-TEMP IN-MEMORY PANEL STORE
-(we will replace with database later)
-
-*/
-
-const panels = {};
-
-/*
-
-CREATE PANEL
-POST /api/panels/create
-
-*/
-
-router.post(”/create”, async (req, res) => {
-try {
-const panelId = panel_${Date.now()};
-
-const panelData = {
-  id: panelId,
-  createdAt: new Date().toISOString(),
-  ...req.body,
-};
-panels[panelId] = panelData;
-console.log("=================================");
-console.log("[PANEL CREATED]");
-console.log(panelData);
-return res.status(200).json({
-  success: true,
-  panel: panelData,
-});
-
-} catch (err) {
-console.log(”=================================”);
-console.log(”[CREATE PANEL ERROR]”);
-console.log(err);
-
-return res.status(500).json({
-  success: false,
-  error: err.message,
-});
-
-}
-});
-
-/*
-
-GET PANEL
-GET /api/panels/:panelId
+GET PANEL BY ID
 
 */
 
@@ -59,26 +12,21 @@ router.get(”/:panelId”, async (req, res) => {
 try {
 const { panelId } = req.params;
 
-console.log("=================================");
-console.log("[GET PANEL]");
-console.log(panelId);
-const panel = panels[panelId];
-if (!panel) {
-  return res.status(404).json({
-    success: false,
-    error: "Panel not found",
-  });
-}
-return res.status(200).json(panel);
+console.log("[PANELS] Fetch request for:", panelId);
+return res.status(200).json({
+  success: true,
+  id: panelId,
+  title: "Test Panel",
+  description: "Passively Panels backend connected successfully",
+  created_at: new Date().toISOString()
+});
 
 } catch (err) {
-console.log(”=================================”);
-console.log(”[GET PANEL ERROR]”);
-console.log(err);
+console.error(”[PANELS ERROR]”, err);
 
 return res.status(500).json({
   success: false,
-  error: err.message,
+  error: "Failed to fetch panel"
 });
 
 }
@@ -86,81 +34,32 @@ return res.status(500).json({
 
 /*
 
-UPDATE PANEL
-PUT /api/panels/:panelId
+CREATE PANEL
 
 */
 
-router.put(”/:panelId”, async (req, res) => {
+router.post(”/create”, async (req, res) => {
 try {
-const { panelId } = req.params;
+const panelId =
+“panel_” +
+Math.random().toString(36).substring(2, 10);
 
-if (!panels[panelId]) {
-  return res.status(404).json({
-    success: false,
-    error: "Panel not found",
-  });
-}
-panels[panelId] = {
-  ...panels[panelId],
-  ...req.body,
-  updatedAt: new Date().toISOString(),
-};
-console.log("=================================");
-console.log("[PANEL UPDATED]");
-console.log(panels[panelId]);
-return res.status(200).json({
+console.log("[PANELS] Created panel:", panelId);
+return res.status(201).json({
   success: true,
-  panel: panels[panelId],
+  panel: {
+    id: panelId,
+    title: "New Panel",
+    created_at: new Date().toISOString()
+  }
 });
 
 } catch (err) {
-console.log(”=================================”);
-console.log(”[UPDATE PANEL ERROR]”);
-console.log(err);
+console.error(”[PANELS CREATE ERROR]”, err);
 
 return res.status(500).json({
   success: false,
-  error: err.message,
-});
-
-}
-});
-
-/*
-
-DELETE PANEL
-DELETE /api/panels/:panelId
-
-*/
-
-router.delete(”/:panelId”, async (req, res) => {
-try {
-const { panelId } = req.params;
-
-if (!panels[panelId]) {
-  return res.status(404).json({
-    success: false,
-    error: "Panel not found",
-  });
-}
-delete panels[panelId];
-console.log("=================================");
-console.log("[PANEL DELETED]");
-console.log(panelId);
-return res.status(200).json({
-  success: true,
-  deleted: panelId,
-});
-
-} catch (err) {
-console.log(”=================================”);
-console.log(”[DELETE PANEL ERROR]”);
-console.log(err);
-
-return res.status(500).json({
-  success: false,
-  error: err.message,
+  error: "Failed to create panel"
 });
 
 }
