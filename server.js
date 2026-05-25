@@ -1,409 +1,428 @@
-require(“dotenv”).config();
+require("dotenv").config();
 
-const express = require(“express”);
-const cors = require(“cors”);
-const webpush = require(“web-push”);
-const bcrypt = require(“bcryptjs”);
-const jwt = require(“jsonwebtoken”);
-const { v4: uuidv4 } = require(“uuid”);
+const express = require("express");
+const cors = require("cors");
+const webpush = require("web-push");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const { v4: uuidv4 } = require("uuid");
 
-const pushRoutes = require(”./routes/pushRoutes”);
-const panelRoutes = require(”./routes/panelRoutes”);
+const pushRoutes = require("./routes/pushRoutes");
+const panelRoutes = require("./routes/panelRoutes");
 
-const pool = require(”./config/db”);
+const pool = require("./config/db");
 
 const app = express();
-
 const PORT = process.env.PORT || 3001;
 
 /*
-
+========================================
 GLOBAL MIDDLEWARE
-
+========================================
 */
 
-app.use(
-cors({
-origin: “*”,
-methods: [“GET”, “POST”, “PUT”, “DELETE”],
-allowedHeaders: [“Content-Type”, “Authorization”]
-})
-);
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
 
 app.use(express.json());
-
-app.use(express.static(“public”));
+app.use(express.static("public"));
 
 /*
-
+========================================
 WEB PUSH CONFIG
-
+========================================
 */
 
 webpush.setVapidDetails(
-process.env.VAPID_SUBJECT || “mailto:admin@example.com”,
-process.env.VAPID_PUBLIC_KEY,
-process.env.VAPID_PRIVATE_KEY
+  process.env.VAPID_SUBJECT || "mailto:admin@example.com",
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
 );
 
 /*
-
+========================================
 PUBLIC SUBSCRIBE ROUTE
-
+========================================
 IMPORTANT:
 This route MUST stay public.
 DO NOT protect with JWT auth.
-
+========================================
 */
 
-app.post(”/api/subscribe”, async (req, res) => {
-try {
-console.log(”[SUBSCRIBE] Incoming request”);
+app.post("/api/subscribe", async (req, res) => {
+  try {
+    console.log("[SUBSCRIBE] Incoming request");
 
-const { subscription, user_id } = req.body;
-if (!subscription || !user_id) {
-  console.log("[SUBSCRIBE] Missing subscription or user_id");
-  return res.status(400).json({
-    error: "Missing subscription or user_id"
-  });
-}
-console.log("[SUBSCRIBE] Saving subscription for:", user_id);
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS subscribers (
-    id SERIAL PRIMARY KEY,
-    endpoint TEXT UNIQUE NOT NULL,
-    p256dh TEXT NOT NULL,
-    auth TEXT NOT NULL,
-    user_id VARCHAR(50),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
-`);
-const query = `
-  INSERT INTO subscribers (
-    endpoint,
-    p256dh,
-    auth,
-    user_id
-  )
-  VALUES ($1, $2, $3, $4)
-  ON CONFLICT (endpoint)
-  DO NOTHING
-`;
-await pool.query(query, [
-  subscription.endpoint,
-  subscription.keys.p256dh,
-  subscription.keys.auth,
-  user_id
-]);
-console.log("[SUBSCRIBE] Subscription saved successfully");
-res.status(201).json({
-  success: true
-});
+    const { subscription, user_id } = req.body;
 
-} catch (err) {
+    if (!subscription || !user_id) {
+      console.log("[SUBSCRIBE] Missing subscription or user_id");
 
-console.error("[SUBSCRIBE ERROR]", err);
-res.status(500).json({
-  error: "Failed to save subscription"
-});
+      return res.status(400).json({
+        error: "Missing subscription or user_id"
+      });
+    }
 
-}
+    console.log("[SUBSCRIBE] Saving subscription for:", user_id);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS subscribers (
+        id SERIAL PRIMARY KEY,
+        endpoint TEXT UNIQUE NOT NULL,
+        p256dh TEXT NOT NULL,
+        auth TEXT NOT NULL,
+        user_id VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    const query = `
+      INSERT INTO subscribers (
+        endpoint,
+        p256dh,
+        auth,
+        user_id
+      )
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (endpoint)
+      DO NOTHING
+    `;
+
+    await pool.query(query, [
+      subscription.endpoint,
+      subscription.keys.p256dh,
+      subscription.keys.auth,
+      user_id
+    ]);
+
+    console.log("[SUBSCRIBE] Subscription saved successfully");
+
+    res.status(201).json({
+      success: true
+    });
+
+  } catch (err) {
+
+    console.error("[SUBSCRIBE ERROR]", err);
+
+    res.status(500).json({
+      error: "Failed to save subscription"
+    });
+  }
 });
 
 /*
-
+========================================
 API ROUTES
-
+========================================
 */
 
-app.use(”/api”, pushRoutes);
+app.use("/api", pushRoutes);
+app.use("/api/panels", panelRoutes);
 
 /*
-
-PANELS ROUTES
-
-*/
-
-app.use(”/api/panels”, panelRoutes);
-
-/*
-
+========================================
 HEALTH CHECK
-
+========================================
 */
 
-app.get(”/health”, (req, res) => {
-res.status(200).json({
-status: “ok”,
-message: “Passively Push Engine running”
-});
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message: "Passively Push Engine running"
+  });
 });
 
 /*
-
+========================================
 USER SIGNUP
-
+========================================
 */
 
-app.post(”/api/signup”, async (req, res) => {
-try {
+app.post("/api/signup", async (req, res) => {
+  try {
 
-const { email, password } = req.body;
-if (!email || !password) {
-  return res.status(400).json({
-    error: "Email and password required"
-  });
-}
-const existingUser = await pool.query(
-  "SELECT * FROM users WHERE email = $1",
-  [email]
-);
-if (existingUser.rows.length > 0) {
-  return res.status(400).json({
-    error: "User already exists"
-  });
-}
-const password_hash = await bcrypt.hash(password, 10);
-const user_id =
-  "user_" +
-  uuidv4().replace(/-/g, "").substring(0, 12);
-const newUser = await pool.query(
-  `
-  INSERT INTO users (user_id, email, password_hash)
-  VALUES ($1, $2, $3)
-  RETURNING id, user_id, email, created_at
-  `,
-  [user_id, email, password_hash]
-);
-const token = jwt.sign(
-  {
-    user_id: newUser.rows[0].user_id,
-    email: newUser.rows[0].email
-  },
-  process.env.JWT_SECRET || "supersecretjwt",
-  {
-    expiresIn: "30d"
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: "Email and password required"
+      });
+    }
+
+    const existingUser = await pool.query(
+      "SELECT * FROM users WHERE email = $1",
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({
+        error: "User already exists"
+      });
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+
+    const user_id =
+      "user_" +
+      uuidv4().replace(/-/g, "").substring(0, 12);
+
+    const newUser = await pool.query(
+      `
+      INSERT INTO users (user_id, email, password_hash)
+      VALUES ($1, $2, $3)
+      RETURNING id, user_id, email, created_at
+      `,
+      [user_id, email, password_hash]
+    );
+
+    const token = jwt.sign(
+      {
+        user_id: newUser.rows[0].user_id,
+        email: newUser.rows[0].email
+      },
+      process.env.JWT_SECRET || "supersecretjwt",
+      {
+        expiresIn: "30d"
+      }
+    );
+
+    res.status(201).json({
+      success: true,
+      token,
+      user: newUser.rows[0]
+    });
+
+  } catch (err) {
+
+    console.error("[SIGNUP ERROR]", err);
+
+    res.status(500).json({
+      error: "Signup failed"
+    });
   }
-);
-res.status(201).json({
-  success: true,
-  token,
-  user: newUser.rows[0]
-});
-
-} catch (err) {
-
-console.error("[SIGNUP ERROR]", err);
-res.status(500).json({
-  error: "Signup failed"
-});
-
-}
 });
 
 /*
-
+========================================
 USER LOGIN
-
+========================================
 */
 
-app.post(”/api/login”, async (req, res) => {
-try {
+app.post("/api/login", async (req, res) => {
+  try {
 
-const { email, password } = req.body;
-const userResult = await pool.query(
-  "SELECT * FROM users WHERE email = $1",
-  [email]
-);
-if (userResult.rows.length === 0) {
-  return res.status(401).json({
-    error: "Invalid credentials"
-  });
-}
-const user = userResult.rows[0];
-const passwordMatch = await bcrypt.compare(
-  password,
-  user.password_hash
-);
-if (!passwordMatch) {
-  return res.status(401).json({
-    error: "Invalid credentials"
-  });
-}
-const token = jwt.sign(
-  {
-    user_id: user.user_id,
-    email: user.email
-  },
-  process.env.JWT_SECRET || "supersecretjwt",
-  {
-    expiresIn: "30d"
+    const { email, password } = req.body;
+
+    const userResult = await pool.query(
+      "SELECT * FROM users WHERE email = $1",
+      [email]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({
+        error: "Invalid credentials"
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    const passwordMatch = await bcrypt.compare(
+      password,
+      user.password_hash
+    );
+
+    if (!passwordMatch) {
+      return res.status(401).json({
+        error: "Invalid credentials"
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        user_id: user.user_id,
+        email: user.email
+      },
+      process.env.JWT_SECRET || "supersecretjwt",
+      {
+        expiresIn: "30d"
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      token,
+      user: {
+        user_id: user.user_id,
+        email: user.email,
+        created_at: user.created_at
+      }
+    });
+
+  } catch (err) {
+
+    console.error("[LOGIN ERROR]", err);
+
+    res.status(500).json({
+      error: "Login failed"
+    });
   }
-);
-res.status(200).json({
-  success: true,
-  token,
-  user: {
-    user_id: user.user_id,
-    email: user.email,
-    created_at: user.created_at
-  }
-});
-
-} catch (err) {
-
-console.error("[LOGIN ERROR]", err);
-res.status(500).json({
-  error: "Login failed"
-});
-
-}
 });
 
 /*
-
+========================================
 JWT AUTH MIDDLEWARE
-
+========================================
 */
 
 const authenticateToken = (req, res, next) => {
 
-const authHeader = req.headers[“authorization”];
+  const authHeader = req.headers["authorization"];
 
-const token =
-authHeader &&
-authHeader.split(” “)[1];
+  const token =
+    authHeader &&
+    authHeader.split(" ")[1];
 
-if (!token) {
-return res.status(401).json({
-error: “Access denied”
-});
-}
-
-jwt.verify(
-token,
-process.env.JWT_SECRET || “supersecretjwt”,
-(err, user) => {
-
-  if (err) {
-    return res.status(403).json({
-      error: "Invalid token"
+  if (!token) {
+    return res.status(401).json({
+      error: "Access denied"
     });
   }
-  req.user = user;
-  next();
-}
 
-);
+  jwt.verify(
+    token,
+    process.env.JWT_SECRET || "supersecretjwt",
+    (err, user) => {
+
+      if (err) {
+        return res.status(403).json({
+          error: "Invalid token"
+        });
+      }
+
+      req.user = user;
+
+      next();
+    }
+  );
 };
 
 /*
-
+========================================
 PROTECTED USER PROFILE ROUTE
-
+========================================
 */
 
-app.get(”/api/me”, authenticateToken, async (req, res) => {
-try {
+app.get("/api/me", authenticateToken, async (req, res) => {
+  try {
 
-const result = await pool.query(
-  `
-  SELECT user_id, email, created_at
-  FROM users
-  WHERE user_id = $1
-  `,
-  [req.user.user_id]
-);
-if (result.rows.length === 0) {
-  return res.status(404).json({
-    error: "User not found"
-  });
-}
-res.json({
-  success: true,
-  user: result.rows[0]
-});
+    const result = await pool.query(
+      `
+      SELECT user_id, email, created_at
+      FROM users
+      WHERE user_id = $1
+      `,
+      [req.user.user_id]
+    );
 
-} catch (err) {
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: "User not found"
+      });
+    }
 
-console.error("[ME ERROR]", err);
-res.status(500).json({
-  error: "Failed to fetch user"
-});
+    res.json({
+      success: true,
+      user: result.rows[0]
+    });
 
-}
+  } catch (err) {
+
+    console.error("[ME ERROR]", err);
+
+    res.status(500).json({
+      error: "Failed to fetch user"
+    });
+  }
 });
 
 /*
-
+========================================
 USER TABLE MIGRATION
-
+========================================
 */
 
-app.get(”/api/run-user-migration”, async (req, res) => {
-try {
+app.get("/api/run-user-migration", async (req, res) => {
+  try {
 
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    user_id VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
-`);
-console.log("[MIGRATION] Users table created successfully");
-res.json({
-  success: true,
-  message: "Users table created successfully"
-});
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(50) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-} catch (err) {
+    console.log("[MIGRATION] Users table created successfully");
 
-console.error("[ERROR] Running migration:", err);
-res.status(500).json({
-  error: "Database migration failed"
-});
+    res.json({
+      success: true,
+      message: "Users table created successfully"
+    });
 
-}
+  } catch (err) {
+
+    console.error("[ERROR] Running migration:", err);
+
+    res.status(500).json({
+      error: "Database migration failed"
+    });
+  }
 });
 
 /*
-
+========================================
 SUBSCRIBER USER_ID MIGRATION
-
+========================================
 */
 
-app.get(”/api/run-subscriber-user-migration”, async (req, res) => {
-try {
+app.get("/api/run-subscriber-user-migration", async (req, res) => {
+  try {
 
-await pool.query(`
-  ALTER TABLE subscribers
-  ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
-`);
-console.log("[MIGRATION] user_id added to subscribers table");
-res.json({
-  success: true,
-  message: "user_id column added successfully"
-});
+    await pool.query(`
+      ALTER TABLE subscribers
+      ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
+    `);
 
-} catch (err) {
+    console.log("[MIGRATION] user_id added to subscribers table");
 
-console.error("[MIGRATION ERROR]", err);
-res.status(500).json({
-  success: false,
-  error: err.message
-});
+    res.json({
+      success: true,
+      message: "user_id column added successfully"
+    });
 
-}
+  } catch (err) {
+
+    console.error("[MIGRATION ERROR]", err);
+
+    res.status(500).json({
+      success: false,
+      error: err.message
+    });
+  }
 });
 
 /*
-
+========================================
 START SERVER
-
+========================================
 */
 
 app.listen(PORT, () => {
-console.log(🚀 Server running on port ${PORT});
+  console.log(`🚀 Server running on port ${PORT}`);
 });
