@@ -22,21 +22,27 @@ const migrateDatabase = async () => {
       );
     `);
 
-    // 2. Check if 'status' column exists
-    const checkColumnQuery = `
+    // 2. Check for missing columns
+    const res = await pool.query(`
       SELECT column_name 
       FROM information_schema.columns 
-      WHERE table_name='panels' AND column_name='status';
-    `;
-    const res = await pool.query(checkColumnQuery);
-    
-    // 3. Add column if missing
-    if (res.rows.length === 0) {
-      console.log('Migration: Adding status column to panels table...');
-      await pool.query(`ALTER TABLE panels ADD COLUMN status VARCHAR(20) DEFAULT 'draft';`);
+      WHERE table_name='panels';
+    `);
+    const existingColumns = res.rows.map(r => r.column_name);
+
+    const columnsToAdd = [];
+    if (!existingColumns.includes('status')) columnsToAdd.push(`ADD COLUMN status VARCHAR(20) DEFAULT 'draft'`);
+    if (!existingColumns.includes('settings')) columnsToAdd.push(`ADD COLUMN settings JSONB DEFAULT '{}'::jsonb`);
+    if (!existingColumns.includes('blocks')) columnsToAdd.push(`ADD COLUMN blocks JSONB DEFAULT '[]'::jsonb`);
+    if (!existingColumns.includes('metadata')) columnsToAdd.push(`ADD COLUMN metadata JSONB DEFAULT '{}'::jsonb`);
+
+    // 3. Add missing columns if any
+    if (columnsToAdd.length > 0) {
+      console.log(`Migration: Adding columns to panels table: ${columnsToAdd.join(', ')}`);
+      await pool.query(`ALTER TABLE panels ${columnsToAdd.join(', ')};`);
       console.log('Migration completed successfully.');
     } else {
-      console.log('Migration: status column already exists.');
+      console.log('Migration: All columns already exist.');
     }
   } catch (err) {
     console.error('Migration error:', err);
@@ -48,29 +54,43 @@ migrateDatabase();
 
 // POST /api/panels - Save or update a panel
 router.post('/', async (req, res) => {
-  const { id, title, text, buttonText, status } = req.body;
+  const { id, title, text, buttonText, status, settings, blocks, metadata } = req.body;
 
   if (!id) {
     return res.status(400).json({ error: 'Panel ID is required' });
   }
 
-  // Default to draft if no status is provided
   const panelStatus = status || 'draft';
+  const panelSettings = settings || {};
+  const panelBlocks = blocks || [];
+  const panelMetadata = metadata || {};
 
   try {
     const query = `
-      INSERT INTO panels (id, title, text, button_text, status, updated_at)
-      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+      INSERT INTO panels (id, title, text, button_text, status, settings, blocks, metadata, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
       ON CONFLICT (id) DO UPDATE 
       SET title = EXCLUDED.title,
           text = EXCLUDED.text,
           button_text = EXCLUDED.button_text,
           status = EXCLUDED.status,
+          settings = EXCLUDED.settings,
+          blocks = EXCLUDED.blocks,
+          metadata = EXCLUDED.metadata,
           updated_at = CURRENT_TIMESTAMP
       RETURNING *;
     `;
     
-    const values = [id, title, text, buttonText, panelStatus];
+    const values = [
+      id, 
+      title, 
+      text, 
+      buttonText, 
+      panelStatus, 
+      JSON.stringify(panelSettings), 
+      JSON.stringify(panelBlocks), 
+      JSON.stringify(panelMetadata)
+    ];
     const result = await pool.query(query, values);
     
     const savedPanel = result.rows[0];
@@ -80,6 +100,9 @@ router.post('/', async (req, res) => {
       text: savedPanel.text,
       buttonText: savedPanel.button_text,
       status: savedPanel.status,
+      settings: savedPanel.settings,
+      blocks: savedPanel.blocks,
+      metadata: savedPanel.metadata,
       updatedAt: savedPanel.updated_at
     });
   } catch (err) {
@@ -98,7 +121,10 @@ router.get('/', async (req, res) => {
       title: row.title,
       text: row.text,
       buttonText: row.button_text,
-      status: row.status || 'live', // Existing panels without status default to live
+      status: row.status || 'live',
+      settings: row.settings || {},
+      blocks: row.blocks || [],
+      metadata: row.metadata || {},
       updatedAt: row.updated_at
     }));
     
@@ -126,7 +152,10 @@ router.get('/:id', async (req, res) => {
       title: row.title,
       text: row.text,
       buttonText: row.button_text,
-      status: row.status || 'live', // Existing panels without status default to live
+      status: row.status || 'live',
+      settings: row.settings || {},
+      blocks: row.blocks || [],
+      metadata: row.metadata || {},
       updatedAt: row.updated_at
     });
   } catch (err) {
