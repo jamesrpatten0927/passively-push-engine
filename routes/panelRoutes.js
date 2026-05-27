@@ -1,35 +1,82 @@
 const express = require('express');
+const { Pool } = require('pg');
 const router = express.Router();
 
-// Temporary in-memory storage for proof-of-render
-const panels = {};
+// Initialize PostgreSQL connection using the existing DATABASE_URL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
+
+// Create the table if it doesn't exist on startup
+pool.query(`
+  CREATE TABLE IF NOT EXISTS panels (
+    id VARCHAR(255) PRIMARY KEY,
+    title TEXT,
+    text TEXT,
+    button_text TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`).catch(console.error);
 
 // POST /api/panels - Save a panel
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { id, title, text, buttonText } = req.body;
 
   if (!id) {
     return res.status(400).json({ error: 'Panel ID is required' });
   }
 
-  panels[id] = { id, title, text, buttonText };
+  try {
+    const { rows } = await pool.query(`
+      INSERT INTO panels (id, title, text, button_text, updated_at)
+      VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+      ON CONFLICT (id) DO UPDATE SET
+        title = EXCLUDED.title,
+        text = EXCLUDED.text,
+        button_text = EXCLUDED.button_text,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING *;
+    `, [id, title, text, buttonText]);
 
-  console.log(`Saved panel: ${id}`);
+    console.log(`Saved panel to DB: ${id}`);
 
-  res.status(200).json(panels[id]);
+    // Return the mapped JSON exactly as the frontend expects
+    res.status(200).json({
+      id: rows[0].id,
+      title: rows[0].title,
+      text: rows[0].text,
+      buttonText: rows[0].button_text
+    });
+  } catch (err) {
+    console.error('Database save error:', err);
+    res.status(500).json({ error: 'Failed to save panel to database' });
+  }
 });
 
 // GET /api/panels/:id - Fetch a panel
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
   const { id } = req.params;
 
-  const panel = panels[id];
+  try {
+    const { rows } = await pool.query('SELECT * FROM panels WHERE id = $1', [id]);
 
-  if (!panel) {
-    return res.status(404).json({ error: 'Panel not found' });
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Panel not found' });
+    }
+
+    // Return the mapped JSON exactly as the frontend expects
+    res.status(200).json({
+      id: rows[0].id,
+      title: rows[0].title,
+      text: rows[0].text,
+      buttonText: rows[0].button_text
+    });
+  } catch (err) {
+    console.error('Database fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch panel from database' });
   }
-
-  res.status(200).json(panel);
 });
 
 module.exports = router;
