@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('../db'); // Assuming you have your pg pool exported from a db.js file
+const { Pool } = require('pg');
+
+// Initialize pool directly using existing Render environment variable
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+});
 
 // POST /api/panels - Save or update a panel
 router.post('/', async (req, res) => {
@@ -29,7 +35,6 @@ router.post('/', async (req, res) => {
     const values = [id, title, text, buttonText, panelStatus];
     const result = await pool.query(query, values);
     
-    // Map snake_case from DB to camelCase for frontend
     const savedPanel = result.rows[0];
     res.status(200).json({
       id: savedPanel.id,
