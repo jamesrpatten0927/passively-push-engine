@@ -80,3 +80,22 @@ router.get('/:id', async (req, res) => {
 });
 
 module.exports = router;
+// GET /api/panels - List all panels
+router.get('/', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM panels ORDER BY updated_at DESC');
+    
+    // Return the mapped JSON exactly as the frontend expects
+    res.status(200).json(rows.map(row => ({
+      id: row.id,
+      title: row.title,
+      text: row.text,
+      buttonText: row.button_text,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    })));
+  } catch (err) {
+    console.error('Database fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch panels from database' });
+  }
+});
