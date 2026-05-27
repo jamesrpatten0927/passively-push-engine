@@ -8,6 +8,44 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
+// Safe, idempotent database migration on startup
+const migrateDatabase = async () => {
+  try {
+    // 1. Ensure the base table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS panels (
+        id VARCHAR(255) PRIMARY KEY,
+        title VARCHAR(255),
+        text TEXT,
+        button_text VARCHAR(255),
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 2. Check if 'status' column exists
+    const checkColumnQuery = `
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name='panels' AND column_name='status';
+    `;
+    const res = await pool.query(checkColumnQuery);
+    
+    // 3. Add column if missing
+    if (res.rows.length === 0) {
+      console.log('Migration: Adding status column to panels table...');
+      await pool.query(`ALTER TABLE panels ADD COLUMN status VARCHAR(20) DEFAULT 'draft';`);
+      console.log('Migration completed successfully.');
+    } else {
+      console.log('Migration: status column already exists.');
+    }
+  } catch (err) {
+    console.error('Migration error:', err);
+  }
+};
+
+// Run migration asynchronously when this module loads
+migrateDatabase();
+
 // POST /api/panels - Save or update a panel
 router.post('/', async (req, res) => {
   const { id, title, text, buttonText, status } = req.body;
