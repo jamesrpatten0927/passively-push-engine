@@ -416,6 +416,72 @@ app.get("/api/run-subscriber-user-migration", async (req, res) => {
     });
   }
 });
+/*
+========================================
+SEND PUSH NOTIFICATION
+========================================
+*/
+app.post("/api/send-notification", async (req, res) => {
+  try {
+    const {
+      title,
+      body,
+      url
+    } = req.body;
+    if (!title || !body) {
+      return res.status(400).json({
+        error: "Title and body required"
+      });
+    }
+    console.log("[SEND PUSH] Sending notification");
+    const subscribers = await pool.query(`
+      SELECT *
+      FROM subscribers
+    `);
+    const payload = JSON.stringify({
+      title,
+      body,
+      url: url || "/",
+      icon: "/icon.png",
+      badge: "/badge.png"
+    });
+    let successCount = 0;
+    for (const sub of subscribers.rows) {
+      const pushSubscription = {
+        endpoint: sub.endpoint,
+        keys: {
+          p256dh: sub.p256dh,
+          auth: sub.auth
+        }
+      };
+      try {
+        await webpush.sendNotification(
+          pushSubscription,
+          payload
+        );
+        successCount++;
+      } catch (err) {
+        console.error(
+          "[PUSH SEND ERROR]",
+          err.statusCode,
+          err.body
+        );
+      }
+    }
+    console.log(
+      `[SEND PUSH] Sent to ${successCount} subscribers`
+    );
+    res.json({
+      success: true,
+      sent: successCount
+    });
+  } catch (err) {
+    console.error("[SEND PUSH ERROR]", err);
+    res.status(500).json({
+      error: "Failed to send notification"
+    });
+  }
+});
 
 /*
 ========================================
