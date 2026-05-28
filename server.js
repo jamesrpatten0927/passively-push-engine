@@ -9,23 +9,11 @@ app.use(cors());
 
 app.use(express.json());
 
-/*
-
-ROOT
-
-*/
-
 app.get(”/”, function(req, res) {
 
 res.send(“OK”);
 
 });
-
-/*
-
-HEALTH
-
-*/
 
 app.get(”/health”, function(req, res) {
 
@@ -36,12 +24,6 @@ message: “Passively Push Engine running”
 
 });
 
-/*
-
-TEST API ROUTE
-
-*/
-
 app.get(”/api/test”, function(req, res) {
 
 res.json({
@@ -51,14 +33,8 @@ message: “API working”
 
 });
 
-/*
-
-START SERVER
-
-*/
-
 app.listen(PORT, function() {
 
-console.log(“RUNNING ON PORT “ + PORT);
+console.log(“SERVER RUNNING”);
 
 });
