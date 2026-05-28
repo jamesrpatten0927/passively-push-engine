@@ -3,10 +3,22 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const webpush = require("web-push");
+const { Pool } = require("pg");
 
 const app = express();
 
 const PORT = process.env.PORT || 3001;
+
+/*
+DATABASE
+*/
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 /*
 MIDDLEWARE
@@ -27,10 +39,24 @@ webpush.setVapidDetails(
 );
 
 /*
-TEMP MEMORY STORAGE
+CREATE TABLE
 */
 
-let subscriptions = [];
+async function initializeDatabase() {
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS subscribers (
+      id SERIAL PRIMARY KEY,
+      endpoint TEXT UNIQUE NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  console.log("Subscribers table ready");
+
+}
 
 /*
 ROOT
@@ -55,26 +81,54 @@ app.get("/health", (req, res) => {
 SUBSCRIBE
 */
 
-app.post("/api/subscribe", (req, res) => {
+app.post("/api/subscribe", async (req, res) => {
 
-  const subscription = req.body;
+  try {
 
-  if (!subscription || !subscription.endpoint) {
+    const subscription = req.body;
 
-    return res.status(400).json({
-      success: false,
-      error: "Invalid subscription"
+    if (!subscription || !subscription.endpoint) {
+
+      return res.status(400).json({
+        success: false,
+        error: "Invalid subscription"
+      });
+
+    }
+
+    await pool.query(
+      `
+      INSERT INTO subscribers (
+        endpoint,
+        p256dh,
+        auth
+      )
+      VALUES ($1, $2, $3)
+      ON CONFLICT (endpoint)
+      DO NOTHING
+      `,
+      [
+        subscription.endpoint,
+        subscription.keys.p256dh,
+        subscription.keys.auth
+      ]
+    );
+
+    console.log("SUBSCRIBER SAVED");
+
+    res.json({
+      success: true
+    });
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.status(500).json({
+      success: false
     });
 
   }
-
-  subscriptions.push(subscription);
-
-  console.log("NEW SUBSCRIBER");
-
-  res.json({
-    success: true
-  });
 
 });
 
@@ -91,13 +145,29 @@ app.post("/api/send-test", async (req, res) => {
       body: "Push notifications are working"
     });
 
+    const result = await pool.query(`
+      SELECT *
+      FROM subscribers
+    `);
+
     let successCount = 0;
 
-    for (const sub of subscriptions) {
+    for (const sub of result.rows) {
+
+      const pushSubscription = {
+        endpoint: sub.endpoint,
+        keys: {
+          p256dh: sub.p256dh,
+          auth: sub.auth
+        }
+      };
 
       try {
 
-        await webpush.sendNotification(sub, payload);
+        await webpush.sendNotification(
+          pushSubscription,
+          payload
+        );
 
         successCount++;
 
@@ -130,6 +200,17 @@ app.post("/api/send-test", async (req, res) => {
 START SERVER
 */
 
-app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
-});
+initializeDatabase()
+  .then(() => {
+
+    app.listen(PORT, () => {
+      console.log("Server running on port " + PORT);
+    });
+
+  })
+  .catch((err) => {
+
+    console.error("DB INIT FAILED");
+    console.error(err);
+
+  });
