@@ -23,9 +23,32 @@ self.addEventListener("push", event => {
 
   const options = {
     body: data.body || "You have a new notification",
-    icon: data.icon || "/icon.png",
-    badge: data.badge || "/badge.png",
-    data: data.url || "/"
+
+    // FULL URLS REQUIRED
+    icon:
+      data.icon ||
+      "https://public-panel-rendere.vibepreview.com/icon.png",
+
+    badge:
+      data.badge ||
+      "https://public-panel-rendere.vibepreview.com/badge.png",
+
+    image:
+      data.image ||
+      "https://public-panel-rendere.vibepreview.com/banner.png",
+
+    vibrate: [200, 100, 200],
+
+    requireInteraction: true,
+
+    data: data.url || "/",
+
+    actions: [
+      {
+        action: "open",
+        title: "Open"
+      }
+    ]
   };
 
   event.waitUntil(
@@ -38,7 +61,23 @@ self.addEventListener("notificationclick", event => {
 
   event.notification.close();
 
+  const targetUrl = event.notification.data || "/";
+
   event.waitUntil(
-    clients.openWindow(event.notification.data || "/")
+    clients.matchAll({
+      type: "window",
+      includeUncontrolled: true
+    }).then(windowClients => {
+
+      for (const client of windowClients) {
+        if (client.url === targetUrl && "focus" in client) {
+          return client.focus();
+        }
+      }
+
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
   );
 });
