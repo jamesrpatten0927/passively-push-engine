@@ -482,7 +482,45 @@ app.post("/api/send-notification", async (req, res) => {
     });
   }
 });
+/*
 
+GET USER SUBSCRIBERS
+
+*/
+
+app.get(”/api/subscribers/:user_id”, async (req, res) => {
+try {
+
+const { user_id } = req.params;
+const result = await pool.query(
+  `
+  SELECT
+    id,
+    endpoint,
+    user_id,
+    created_at
+  FROM subscribers
+  WHERE user_id = $1
+  ORDER BY created_at DESC
+  `,
+  [user_id]
+);
+res.json({
+  success: true,
+  total: result.rows.length,
+  subscribers: result.rows
+});
+
+} catch (err) {
+
+console.error("[GET SUBSCRIBERS ERROR]", err);
+res.status(500).json({
+  success: false,
+  error: err.message
+});
+
+}
+});
 /*
 ========================================
 START SERVER
