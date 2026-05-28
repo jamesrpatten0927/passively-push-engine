@@ -10,10 +10,14 @@
   var panelId = null;
   var apiEndpoint = null;
   for (var i = 0; i < scripts.length; i++) {
-    if (scripts[i].src && scripts[i].src.indexOf('panel.js') !== -1) {
+    if (
+      scripts[i].src &&
+      scripts[i].src.indexOf('panel.js') !== -1
+    ) {
       currentScript = scripts[i];
       panelId = currentScript.getAttribute('data-panel-id');
-      apiEndpoint = currentScript.getAttribute('data-api-endpoint');
+      apiEndpoint =
+        currentScript.getAttribute('data-api-endpoint');
       if (panelId) break;
     }
   }
@@ -34,6 +38,125 @@
       return res.json();
     })
     .then(function (data) {
+      /*
+       * PUSH SUBSCRIPTION INIT
+       */
+      (async () => {
+        try {
+          console.log("[PANEL PUSH] init started");
+          const vapidKey =
+            currentScript.getAttribute('data-vapid-key');
+          const subscribeEndpoint =
+            backendUrl + '/api/subscribe';
+          const userId =
+            currentScript.getAttribute('data-user-id') ||
+            'anonymous';
+          console.log("[PANEL PUSH] CONFIG");
+          console.log({
+            vapidKey,
+            subscribeEndpoint,
+            userId
+          });
+          if (!("serviceWorker" in navigator)) {
+            console.error(
+              "[PANEL PUSH ERROR] Service workers unsupported"
+            );
+            return;
+          }
+          if (!("PushManager" in window)) {
+            console.error(
+              "[PANEL PUSH ERROR] PushManager unsupported"
+            );
+            return;
+          }
+          if (!("Notification" in window)) {
+            console.error(
+              "[PANEL PUSH ERROR] Notifications unsupported"
+            );
+            return;
+          }
+          let permission = Notification.permission;
+          console.log(
+            "[PANEL PUSH] existing permission:",
+            permission
+          );
+          if (permission !== "granted") {
+            permission =
+              await Notification.requestPermission();
+          }
+          console.log(
+            "[PANEL PUSH] permission result:",
+            permission
+          );
+          if (permission !== "granted") {
+            console.error(
+              "[PANEL PUSH ERROR] Permission denied"
+            );
+            return;
+          }
+          console.log(
+            "[PANEL PUSH] registering service worker"
+          );
+          const registration =
+            await navigator.serviceWorker.register(
+              "/sw.js"
+            );
+          console.log(
+            "[PANEL PUSH] service worker registered"
+          );
+          let subscription =
+            await registration.pushManager.getSubscription();
+          if (!subscription) {
+            console.log(
+              "[PANEL PUSH] creating new subscription"
+            );
+            const convertedVapidKey =
+              urlBase64ToUint8Array(vapidKey);
+            subscription =
+              await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey:
+                  convertedVapidKey
+              });
+          } else {
+            console.log(
+              "[PANEL PUSH] existing subscription found"
+            );
+          }
+          console.log(
+            "[PANEL PUSH] subscription ready"
+          );
+          console.log(subscription);
+          console.log(
+            "[PANEL PUSH] sending subscription to backend"
+          );
+          const response = await fetch(
+            subscribeEndpoint,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                subscription,
+                user_id: userId,
+                panel_id: panelId
+              })
+            }
+          );
+          const responseData =
+            await response.json();
+          console.log(
+            "[PANEL PUSH] backend response"
+          );
+          console.log(responseData);
+        } catch (err) {
+          console.error(
+            "[PANEL PUSH FATAL ERROR]"
+          );
+          console.error(err);
+        }
+      })();
       var launcher = document.createElement('button');
       launcher.innerText = data.title || 'Open';
       launcher.style.position = 'fixed';
@@ -48,7 +171,8 @@
       launcher.style.fontSize = '14px';
       launcher.style.fontWeight = '700';
       launcher.style.cursor = 'pointer';
-      launcher.style.boxShadow = '0 10px 30px rgba(0,0,0,0.3)';
+      launcher.style.boxShadow =
+        '0 10px 30px rgba(0,0,0,0.3)';
       var panel = document.createElement('div');
       panel.style.position = 'fixed';
       panel.style.top = '0';
@@ -61,7 +185,8 @@
       panel.style.zIndex = '999998';
       panel.style.transform = 'translateX(100%)';
       panel.style.transition = 'transform 0.4s ease';
-      panel.style.boxShadow = '-10px 0 40px rgba(0,0,0,0.4)';
+      panel.style.boxShadow =
+        '-10px 0 40px rgba(0,0,0,0.4)';
       panel.style.display = 'flex';
       panel.style.flexDirection = 'column';
       panel.style.fontFamily =
@@ -71,7 +196,8 @@
       header.style.display = 'flex';
       header.style.justifyContent = 'space-between';
       header.style.alignItems = 'center';
-      header.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+      header.style.borderBottom =
+        '1px solid rgba(255,255,255,0.08)';
       var title = document.createElement('h2');
       title.innerText = data.title || 'Panel';
       title.style.margin = '0';
@@ -91,7 +217,8 @@
       content.style.flex = '1';
       var text = document.createElement('p');
       text.innerText =
-        data.text || 'Your Passively panel is connected successfully.';
+        data.text ||
+        'Your Passively panel is connected successfully.';
       text.style.lineHeight = '1.7';
       content.appendChild(text);
       if (data.buttonText && data.buttonUrl) {
@@ -125,4 +252,18 @@
     .catch(function (err) {
       console.error('Passively Widget Error:', err);
     });
+  function urlBase64ToUint8Array(base64String) {
+    const padding =
+      "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 =
+      (base64String + padding)
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+    const rawData = atob(base64);
+    return Uint8Array.from(
+      [...rawData].map(function (char) {
+        return char.charCodeAt(0);
+      })
+    );
+  }
 })();
