@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 3001;
 
 /*
 
-GLOBAL MIDDLEWARE
+MIDDLEWARE
 
 */
 
@@ -58,7 +58,7 @@ message: “Passively Push Engine running”
 
 /*
 
-PUBLIC SUBSCRIBE ROUTE
+SUBSCRIBE
 
 */
 
@@ -66,7 +66,6 @@ app.post(”/api/subscribe”, async (req, res) => {
 
 try {
 
-console.log("[SUBSCRIBE] Incoming request");
 const { subscription, user_id } = req.body;
 if (!subscription || !user_id) {
   return res.status(400).json({
@@ -83,7 +82,8 @@ await pool.query(`
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 `);
-const query = `
+await pool.query(
+  `
   INSERT INTO subscribers (
     endpoint,
     p256dh,
@@ -93,14 +93,14 @@ const query = `
   VALUES ($1, $2, $3, $4)
   ON CONFLICT (endpoint)
   DO NOTHING
-`;
-await pool.query(query, [
-  subscription.endpoint,
-  subscription.keys.p256dh,
-  subscription.keys.auth,
-  user_id
-]);
-console.log("[SUBSCRIBE] Saved");
+  `,
+  [
+    subscription.endpoint,
+    subscription.keys.p256dh,
+    subscription.keys.auth,
+    user_id
+  ]
+);
 res.status(201).json({
   success: true
 });
@@ -118,7 +118,7 @@ res.status(500).json({
 
 /*
 
-SEND PUSH NOTIFICATION
+SEND NOTIFICATION
 
 */
 
@@ -126,17 +126,12 @@ app.post(”/api/send-notification”, async (req, res) => {
 
 try {
 
-const {
-  title,
-  body,
-  url
-} = req.body;
+const { title, body, url } = req.body;
 if (!title || !body) {
   return res.status(400).json({
     error: "Title and body required"
   });
 }
-console.log("[SEND PUSH] Sending notification");
 const subscribers = await pool.query(`
   SELECT *
   FROM subscribers
@@ -164,16 +159,9 @@ for (const sub of subscribers.rows) {
     );
     successCount++;
   } catch (err) {
-    console.error(
-      "[PUSH SEND ERROR]",
-      err.statusCode,
-      err.body
-    );
+    console.error("[PUSH ERROR]", err);
   }
 }
-console.log(
-  `[SEND PUSH] Sent to ${successCount} subscribers`
-);
 res.json({
   success: true,
   sent: successCount
@@ -181,7 +169,7 @@ res.json({
 
 } catch (err) {
 
-console.error("[SEND PUSH ERROR]", err);
+console.error("[SEND ERROR]", err);
 res.status(500).json({
   error: "Failed to send notification"
 });
@@ -192,7 +180,7 @@ res.status(500).json({
 
 /*
 
-USER SIGNUP
+SIGNUP
 
 */
 
@@ -216,7 +204,11 @@ await pool.query(`
   );
 `);
 const existingUser = await pool.query(
-  "SELECT * FROM users WHERE email = $1",
+  `
+  SELECT *
+  FROM users
+  WHERE email = $1
+  `,
   [email]
 );
 if (existingUser.rows.length > 0) {
@@ -236,13 +228,13 @@ const newUser = await pool.query(
     password_hash
   )
   VALUES ($1, $2, $3)
-  RETURNING
-    id,
+  RETURNING *
+  `,
+  [
     user_id,
     email,
-    created_at
-  `,
-  [user_id, email, password_hash]
+    password_hash
+  ]
 );
 const token = jwt.sign(
   {
@@ -273,7 +265,7 @@ res.status(500).json({
 
 /*
 
-USER LOGIN
+LOGIN
 
 */
 
@@ -282,21 +274,25 @@ app.post(”/api/login”, async (req, res) => {
 try {
 
 const { email, password } = req.body;
-const userResult = await pool.query(
-  "SELECT * FROM users WHERE email = $1",
+const result = await pool.query(
+  `
+  SELECT *
+  FROM users
+  WHERE email = $1
+  `,
   [email]
 );
-if (userResult.rows.length === 0) {
+if (result.rows.length === 0) {
   return res.status(401).json({
     error: "Invalid credentials"
   });
 }
-const user = userResult.rows[0];
-const passwordMatch = await bcrypt.compare(
+const user = result.rows[0];
+const validPassword = await bcrypt.compare(
   password,
   user.password_hash
 );
-if (!passwordMatch) {
+if (!validPassword) {
   return res.status(401).json({
     error: "Invalid credentials"
   });
@@ -311,14 +307,10 @@ const token = jwt.sign(
     expiresIn: "30d"
   }
 );
-res.status(200).json({
+res.json({
   success: true,
   token,
-  user: {
-    user_id: user.user_id,
-    email: user.email,
-    created_at: user.created_at
-  }
+  user
 });
 
 } catch (err) {
@@ -326,88 +318,6 @@ res.status(200).json({
 console.error("[LOGIN ERROR]", err);
 res.status(500).json({
   error: "Login failed"
-});
-
-}
-
-});
-
-/*
-
-JWT AUTH MIDDLEWARE
-
-*/
-
-const authenticateToken = (req, res, next) => {
-
-const authHeader = req.headers[“authorization”];
-
-const token =
-authHeader &&
-authHeader.split(” “)[1];
-
-if (!token) {
-
-return res.status(401).json({
-  error: "Access denied"
-});
-
-}
-
-jwt.verify(
-token,
-process.env.JWT_SECRET || “supersecretjwt”,
-(err, user) => {
-
-  if (err) {
-    return res.status(403).json({
-      error: "Invalid token"
-    });
-  }
-  req.user = user;
-  next();
-}
-
-);
-
-};
-
-/*
-
-CURRENT USER ROUTE
-
-*/
-
-app.get(”/api/me”, authenticateToken, async (req, res) => {
-
-try {
-
-const result = await pool.query(
-  `
-  SELECT
-    user_id,
-    email,
-    created_at
-  FROM users
-  WHERE user_id = $1
-  `,
-  [req.user.user_id]
-);
-if (result.rows.length === 0) {
-  return res.status(404).json({
-    error: "User not found"
-  });
-}
-res.json({
-  success: true,
-  user: result.rows[0]
-});
-
-} catch (err) {
-
-console.error("[ME ERROR]", err);
-res.status(500).json({
-  error: "Failed to fetch user"
 });
 
 }
