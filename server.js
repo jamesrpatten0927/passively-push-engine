@@ -1,4 +1,5 @@
-const express = require("express");const cors = require("cors");
+const express = require(“express”);
+const cors = require(“cors”);
 
 const app = express();
 
@@ -8,24 +9,48 @@ app.use(cors());
 
 app.use(express.json());
 
-/*ROOT*/
+/*
+ROOT
+*/
 
-app.get("/", function(req, res) {
+app.get(”/”, function(req, res) {
 
-res.send("WORKING");
-
-});
-
-/*HEALTH*/
-
-app.get("/health", function(req, res) {
-
-res.json({status: "ok",message: "Passively Push Engine running"});
+res.send(“WORKING”);
 
 });
 
-/*TEST API*/
+/*
+HEALTH
+*/
 
-app.get("/api/test", function(req, res) {
+app.get(”/health”, function(req, res) {
 
-res.json({success: true,message: "API working"});
+res.json({
+status: “ok”,
+message: “Passively Push Engine running”
+});
+
+});
+
+/*
+TEST API
+*/
+
+app.get(”/api/test”, function(req, res) {
+
+res.json({
+success: true,
+message: “API working”
+});
+
+});
+
+/*
+START SERVER
+*/
+
+app.listen(PORT, function() {
+
+console.log(“SERVER RUNNING”);
+
+});
