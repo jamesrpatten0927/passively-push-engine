@@ -7,9 +7,6 @@ const bcrypt = require(“bcryptjs”);
 const jwt = require(“jsonwebtoken”);
 const { v4: uuidv4 } = require(“uuid”);
 
-const pushRoutes = require(”./routes/pushRoutes”);
-const panelRoutes = require(”./routes/panelRoutes”);
-
 const pool = require(”./config/db”);
 
 const app = express();
@@ -39,10 +36,25 @@ WEB PUSH CONFIG
 */
 
 webpush.setVapidDetails(
-process.env.VAPID_SUBJECT || “mailto:admin@example.com”,
+process.env.VAPID_SUBJECT || “mailto:test@test.com”,
 process.env.VAPID_PUBLIC_KEY,
 process.env.VAPID_PRIVATE_KEY
 );
+
+/*
+
+HEALTH CHECK
+
+*/
+
+app.get(”/health”, (req, res) => {
+
+res.status(200).json({
+status: “ok”,
+message: “Passively Push Engine running”
+});
+
+});
 
 /*
 
@@ -106,26 +118,75 @@ res.status(500).json({
 
 /*
 
-API ROUTES
+SEND PUSH NOTIFICATION
 
 */
 
-app.use(”/api”, pushRoutes);
+app.post(”/api/send-notification”, async (req, res) => {
 
-app.use(”/api/panels”, panelRoutes);
+try {
 
-/*
-
-HEALTH CHECK
-
-*/
-
-app.get(”/health”, (req, res) => {
-
-res.status(200).json({
-status: “ok”,
-message: “Passively Push Engine running”
+const {
+  title,
+  body,
+  url
+} = req.body;
+if (!title || !body) {
+  return res.status(400).json({
+    error: "Title and body required"
+  });
+}
+console.log("[SEND PUSH] Sending notification");
+const subscribers = await pool.query(`
+  SELECT *
+  FROM subscribers
+`);
+const payload = JSON.stringify({
+  title,
+  body,
+  url: url || "/",
+  icon: "/icon.png",
+  badge: "/badge.png"
 });
+let successCount = 0;
+for (const sub of subscribers.rows) {
+  const pushSubscription = {
+    endpoint: sub.endpoint,
+    keys: {
+      p256dh: sub.p256dh,
+      auth: sub.auth
+    }
+  };
+  try {
+    await webpush.sendNotification(
+      pushSubscription,
+      payload
+    );
+    successCount++;
+  } catch (err) {
+    console.error(
+      "[PUSH SEND ERROR]",
+      err.statusCode,
+      err.body
+    );
+  }
+}
+console.log(
+  `[SEND PUSH] Sent to ${successCount} subscribers`
+);
+res.json({
+  success: true,
+  sent: successCount
+});
+
+} catch (err) {
+
+console.error("[SEND PUSH ERROR]", err);
+res.status(500).json({
+  error: "Failed to send notification"
+});
+
+}
 
 });
 
@@ -145,6 +206,15 @@ if (!email || !password) {
     error: "Email and password required"
   });
 }
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );
+`);
 const existingUser = await pool.query(
   "SELECT * FROM users WHERE email = $1",
   [email]
@@ -166,7 +236,11 @@ const newUser = await pool.query(
     password_hash
   )
   VALUES ($1, $2, $3)
-  RETURNING id, user_id, email, created_at
+  RETURNING
+    id,
+    user_id,
+    email,
+    created_at
   `,
   [user_id, email, password_hash]
 );
@@ -334,142 +408,6 @@ res.json({
 console.error("[ME ERROR]", err);
 res.status(500).json({
   error: "Failed to fetch user"
-});
-
-}
-
-});
-
-/*
-
-RUN USER MIGRATION
-
-*/
-
-app.get(”/api/run-user-migration”, async (req, res) => {
-
-try {
-
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    user_id VARCHAR(50) UNIQUE NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-  );
-`);
-res.json({
-  success: true,
-  message: "Users table created"
-});
-
-} catch (err) {
-
-console.error("[USER MIGRATION ERROR]", err);
-res.status(500).json({
-  error: "Migration failed"
-});
-
-}
-
-});
-
-/*
-
-RUN SUBSCRIBER MIGRATION
-
-*/
-
-app.get(”/api/run-subscriber-user-migration”, async (req, res) => {
-
-try {
-
-await pool.query(`
-  ALTER TABLE subscribers
-  ADD COLUMN IF NOT EXISTS user_id VARCHAR(50);
-`);
-res.json({
-  success: true,
-  message: "Subscriber migration complete"
-});
-
-} catch (err) {
-
-console.error("[SUBSCRIBER MIGRATION ERROR]", err);
-res.status(500).json({
-  success: false,
-  error: err.message
-});
-
-}
-
-});
-
-/*
-
-SEND PUSH NOTIFICATION
-
-*/
-
-app.post(”/api/send-notification”, async (req, res) => {
-
-try {
-
-const {
-  title,
-  body,
-  url
-} = req.body;
-if (!title || !body) {
-  return res.status(400).json({
-    error: "Title and body required"
-  });
-}
-const subscribers = await pool.query(`
-  SELECT *
-  FROM subscribers
-`);
-const payload = JSON.stringify({
-  title,
-  body,
-  url: url || "/",
-  icon: "/icon.png",
-  badge: "/badge.png"
-});
-let successCount = 0;
-for (const sub of subscribers.rows) {
-  const pushSubscription = {
-    endpoint: sub.endpoint,
-    keys: {
-      p256dh: sub.p256dh,
-      auth: sub.auth
-    }
-  };
-  try {
-    await webpush.sendNotification(
-      pushSubscription,
-      payload
-    );
-    successCount++;
-  } catch (err) {
-    console.error(
-      "[PUSH SEND ERROR]",
-      err.statusCode,
-      err.body
-    );
-  }
-}
-res.json({
-  success: true,
-  sent: successCount
-});
-
-} catch (err) {
-
-console.error("[SEND PUSH ERROR]", err);
-res.status(500).json({
-  error: "Failed to send notification"
 });
 
 }
