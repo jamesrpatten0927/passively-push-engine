@@ -1,22 +1,70 @@
 const express = require('express');
 const router = express.Router();
 const { Pool } = require('pg');
+const jwt = require('jsonwebtoken');
 
-// Initialize pool directly using existing Render environment variable
+// ==========================================
+// DATABASE
+// ==========================================
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false
+  ssl:
+    process.env.NODE_ENV === 'production'
+      ? { rejectUnauthorized: false }
+      : false
 });
 
-// Safe, idempotent database migration on startup
+// ==========================================
+// AUTH MIDDLEWARE
+// ==========================================
+
+function authenticateToken(req, res, next) {
+
+  const authHeader = req.headers["authorization"];
+
+  const token =
+    authHeader &&
+    authHeader.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Missing token"
+    });
+  }
+
+  jwt.verify(
+    token,
+    process.env.JWT_SECRET,
+    (err, user) => {
+
+      if (err) {
+        return res.status(403).json({
+          error: "Invalid token"
+        });
+      }
+
+      req.user = user;
+
+      next();
+
+    }
+  );
+
+}
+
+// ==========================================
+// DATABASE MIGRATION
+// ==========================================
+
 const migrateDatabase = async () => {
+
   try {
-    // Ensure base panels table exists
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS panels (
         id VARCHAR(255) PRIMARY KEY,
+        user_id TEXT,
         title VARCHAR(255),
         text TEXT,
         button_text VARCHAR(255),
@@ -24,7 +72,6 @@ const migrateDatabase = async () => {
       );
     `);
 
-    // Ensure analytics table exists
     await pool.query(`
       CREATE TABLE IF NOT EXISTS panel_events (
         id SERIAL PRIMARY KEY,
@@ -37,16 +84,20 @@ const migrateDatabase = async () => {
       );
     `);
 
-    // Check existing panel columns
     const res = await pool.query(`
       SELECT column_name
       FROM information_schema.columns
       WHERE table_name='panels';
     `);
 
-    const existingColumns = res.rows.map(r => r.column_name);
+    const existingColumns =
+      res.rows.map(r => r.column_name);
 
     const columnsToAdd = [];
+
+    if (!existingColumns.includes('user_id')) {
+      columnsToAdd.push(`ADD COLUMN user_id TEXT`);
+    }
 
     if (!existingColumns.includes('status')) {
       columnsToAdd.push(`ADD COLUMN status VARCHAR(20) DEFAULT 'draft'`);
@@ -64,35 +115,35 @@ const migrateDatabase = async () => {
       columnsToAdd.push(`ADD COLUMN metadata JSONB DEFAULT '{}'::jsonb`);
     }
 
-    // Add missing columns safely
     if (columnsToAdd.length > 0) {
-      console.log(`Migration: Adding columns to panels table`);
+
       await pool.query(`
         ALTER TABLE panels
         ${columnsToAdd.join(', ')};
       `);
 
-      console.log('Migration completed successfully.');
-    } else {
-      console.log('Migration: All columns already exist.');
+      console.log("Panel migration completed");
+
     }
 
-    console.log('PostgreSQL tables verified.');
+    console.log("Panels database verified");
 
   } catch (err) {
-    console.error('Migration error:', err);
+
+    console.error("Migration error:", err);
+
   }
+
 };
 
-// Run migration on startup
 migrateDatabase();
 
-
 // ==========================================
-// ANALYTICS EVENT INGESTION
+// ANALYTICS
 // ==========================================
 
 router.post('/analytics', async (req, res) => {
+
   const {
     panelId,
     eventType,
@@ -103,12 +154,15 @@ router.post('/analytics', async (req, res) => {
   } = req.body;
 
   if (!panelId || !eventType) {
+
     return res.status(400).json({
       error: 'Missing required fields'
     });
+
   }
 
   try {
+
     await pool.query(
       `
       INSERT INTO panel_events (
@@ -136,289 +190,318 @@ router.post('/analytics', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error saving analytics event:', error);
+
+    console.error(error);
 
     res.status(500).json({
       error: 'Failed to save event'
     });
+
   }
+
 });
 
-
 // ==========================================
-// GET PANEL ANALYTICS
-// IMPORTANT:
-// MUST COME BEFORE '/:id'
+// PANEL ANALYTICS
 // ==========================================
 
-router.get('/:id/analytics', async (req, res) => {
-  const { id } = req.params;
+router.get(
+  '/:id/analytics',
+  authenticateToken,
+  async (req, res) => {
 
-  try {
-    const opensResult = await pool.query(
-      `
-      SELECT COUNT(*) as count
-      FROM panel_events
-      WHERE panel_id = $1
-      AND event_type = 'panel_opened'
-      `,
-      [id]
-    );
+    const { id } = req.params;
 
-    const clicksResult = await pool.query(
-      `
-      SELECT COUNT(*) as count
-      FROM panel_events
-      WHERE panel_id = $1
-      AND event_type = 'tab_clicked'
-      `,
-      [id]
-    );
+    try {
 
-    const mostClickedResult = await pool.query(
-      `
-      SELECT tab_label, COUNT(*) as count
-      FROM panel_events
-      WHERE panel_id = $1
-      AND event_type = 'tab_clicked'
-      AND tab_label IS NOT NULL
-      GROUP BY tab_label
-      ORDER BY count DESC
-      LIMIT 1
-      `,
-      [id]
-    );
+      const panelCheck = await pool.query(
+        `
+        SELECT *
+        FROM panels
+        WHERE id = $1
+        AND user_id = $2
+        `,
+        [
+          id,
+          req.user.user_id
+        ]
+      );
 
-    res.status(200).json({
-      panelId: id,
-      totalOpens: parseInt(opensResult.rows[0]?.count || '0', 10),
-      totalTabClicks: parseInt(clicksResult.rows[0]?.count || '0', 10),
-      mostClickedTab: mostClickedResult.rows[0]?.tab_label || null
-    });
+      if (panelCheck.rows.length === 0) {
 
-  } catch (error) {
-    console.error('Error fetching analytics:', error);
+        return res.status(404).json({
+          error: 'Panel not found'
+        });
 
-    res.status(500).json({
-      error: 'Failed to fetch analytics'
-    });
+      }
+
+      const opensResult = await pool.query(
+        `
+        SELECT COUNT(*) as count
+        FROM panel_events
+        WHERE panel_id = $1
+        AND event_type = 'panel_opened'
+        `,
+        [id]
+      );
+
+      const clicksResult = await pool.query(
+        `
+        SELECT COUNT(*) as count
+        FROM panel_events
+        WHERE panel_id = $1
+        AND event_type = 'tab_clicked'
+        `,
+        [id]
+      );
+
+      res.status(200).json({
+        panelId: id,
+        totalOpens: parseInt(opensResult.rows[0]?.count || '0'),
+        totalTabClicks: parseInt(clicksResult.rows[0]?.count || '0')
+      });
+
+    } catch (error) {
+
+      console.error(error);
+
+      res.status(500).json({
+        error: 'Failed to fetch analytics'
+      });
+
+    }
+
   }
-});
-
+);
 
 // ==========================================
-// SAVE / UPDATE PANEL
+// SAVE PANEL
 // ==========================================
 
-router.post('/', async (req, res) => {
-  const {
-    id,
-    title,
-    text,
-    buttonText,
-    status,
-    settings,
-    blocks,
-    metadata
-  } = req.body;
+router.post(
+  '/',
+  authenticateToken,
+  async (req, res) => {
 
-  if (!id) {
-    return res.status(400).json({
-      error: 'Panel ID is required'
-    });
-  }
-
-  const panelStatus = status || 'draft';
-  const panelSettings = settings || {};
-  const panelBlocks = blocks || [];
-  const panelMetadata = metadata || {};
-
-  try {
-    const query = `
-      INSERT INTO panels (
-        id,
-        title,
-        text,
-        button_text,
-        status,
-        settings,
-        blocks,
-        metadata,
-        updated_at
-      )
-      VALUES (
-        $1, $2, $3, $4, $5, $6, $7, $8,
-        CURRENT_TIMESTAMP
-      )
-
-      ON CONFLICT (id)
-      DO UPDATE SET
-        title = EXCLUDED.title,
-        text = EXCLUDED.text,
-        button_text = EXCLUDED.button_text,
-        status = EXCLUDED.status,
-        settings = EXCLUDED.settings,
-        blocks = EXCLUDED.blocks,
-        metadata = EXCLUDED.metadata,
-        updated_at = CURRENT_TIMESTAMP
-
-      RETURNING *;
-    `;
-
-    const values = [
+    const {
       id,
       title,
       text,
       buttonText,
-      panelStatus,
-      JSON.stringify(panelSettings),
-      JSON.stringify(panelBlocks),
-      JSON.stringify(panelMetadata)
-    ];
+      status,
+      settings,
+      blocks,
+      metadata
+    } = req.body;
 
-    const result = await pool.query(query, values);
+    if (!id) {
 
-    const savedPanel = result.rows[0];
+      return res.status(400).json({
+        error: 'Panel ID is required'
+      });
 
-    res.status(200).json({
-      id: savedPanel.id,
-      title: savedPanel.title,
-      text: savedPanel.text,
-      buttonText: savedPanel.button_text,
-      status: savedPanel.status,
-      settings: savedPanel.settings,
-      blocks: savedPanel.blocks,
-      metadata: savedPanel.metadata,
-      updatedAt: savedPanel.updated_at
-    });
+    }
 
-  } catch (err) {
-    console.error('Error saving panel:', err);
+    try {
 
-    res.status(500).json({
-      error: 'Internal server error'
-    });
+      const query = `
+        INSERT INTO panels (
+          id,
+          user_id,
+          title,
+          text,
+          button_text,
+          status,
+          settings,
+          blocks,
+          metadata,
+          updated_at
+        )
+
+        VALUES (
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,
+          CURRENT_TIMESTAMP
+        )
+
+        ON CONFLICT (id)
+
+        DO UPDATE SET
+          title = EXCLUDED.title,
+          text = EXCLUDED.text,
+          button_text = EXCLUDED.button_text,
+          status = EXCLUDED.status,
+          settings = EXCLUDED.settings,
+          blocks = EXCLUDED.blocks,
+          metadata = EXCLUDED.metadata,
+          updated_at = CURRENT_TIMESTAMP
+
+        RETURNING *;
+      `;
+
+      const values = [
+        id,
+        req.user.user_id,
+        title,
+        text,
+        buttonText,
+        status || 'draft',
+        JSON.stringify(settings || {}),
+        JSON.stringify(blocks || []),
+        JSON.stringify(metadata || {})
+      ];
+
+      const result =
+        await pool.query(query, values);
+
+      res.status(200).json(result.rows[0]);
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error: 'Internal server error'
+      });
+
+    }
+
   }
-});
-
+);
 
 // ==========================================
-// GET ALL PANELS
+// GET ALL USER PANELS
 // ==========================================
 
-router.get('/', async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT *
-      FROM panels
-      ORDER BY updated_at DESC
-    `);
+router.get(
+  '/',
+  authenticateToken,
+  async (req, res) => {
 
-    const panels = result.rows.map(row => ({
-      id: row.id,
-      title: row.title,
-      text: row.text,
-      buttonText: row.button_text,
-      status: row.status || 'live',
-      settings: row.settings || {},
-      blocks: row.blocks || [],
-      metadata: row.metadata || {},
-      updatedAt: row.updated_at
-    }));
+    try {
 
-    res.status(200).json(panels);
+      const result = await pool.query(
+        `
+        SELECT *
+        FROM panels
+        WHERE user_id = $1
+        ORDER BY updated_at DESC
+        `,
+        [req.user.user_id]
+      );
 
-  } catch (err) {
-    console.error('Error fetching panels:', err);
+      res.status(200).json(result.rows);
 
-    res.status(500).json({
-      error: 'Internal server error'
-    });
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error: 'Internal server error'
+      });
+
+    }
+
   }
-});
-
+);
 
 // ==========================================
 // GET SINGLE PANEL
 // ==========================================
 
-router.get('/:id', async (req, res) => {
-  const { id } = req.params;
+router.get(
+  '/:id',
+  authenticateToken,
+  async (req, res) => {
 
-  try {
-    const result = await pool.query(
-      `
-      SELECT *
-      FROM panels
-      WHERE id = $1
-      `,
-      [id]
-    );
+    const { id } = req.params;
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Panel not found'
+    try {
+
+      const result = await pool.query(
+        `
+        SELECT *
+        FROM panels
+        WHERE id = $1
+        AND user_id = $2
+        `,
+        [
+          id,
+          req.user.user_id
+        ]
+      );
+
+      if (result.rows.length === 0) {
+
+        return res.status(404).json({
+          error: 'Panel not found'
+        });
+
+      }
+
+      res.status(200).json(result.rows[0]);
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error: 'Internal server error'
       });
+
     }
 
-    const row = result.rows[0];
-
-    res.status(200).json({
-      id: row.id,
-      title: row.title,
-      text: row.text,
-      buttonText: row.button_text,
-      status: row.status || 'live',
-      settings: row.settings || {},
-      blocks: row.blocks || [],
-      metadata: row.metadata || {},
-      updatedAt: row.updated_at
-    });
-
-  } catch (err) {
-    console.error('Error fetching panel:', err);
-
-    res.status(500).json({
-      error: 'Internal server error'
-    });
   }
-});
-
+);
 
 // ==========================================
 // DELETE PANEL
 // ==========================================
 
-router.delete('/:id', async (req, res) => {
-  const { id } = req.params;
+router.delete(
+  '/:id',
+  authenticateToken,
+  async (req, res) => {
 
-  try {
-    const result = await pool.query(
-      `
-      DELETE FROM panels
-      WHERE id = $1
-      RETURNING *
-      `,
-      [id]
-    );
+    const { id } = req.params;
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Panel not found'
+    try {
+
+      const result = await pool.query(
+        `
+        DELETE FROM panels
+        WHERE id = $1
+        AND user_id = $2
+        RETURNING *
+        `,
+        [
+          id,
+          req.user.user_id
+        ]
+      );
+
+      if (result.rows.length === 0) {
+
+        return res.status(404).json({
+          error: 'Panel not found'
+        });
+
+      }
+
+      res.status(200).json({
+        success: true
       });
+
+    } catch (err) {
+
+      console.error(err);
+
+      res.status(500).json({
+        error: 'Internal server error'
+      });
+
     }
 
-    res.status(200).json({
-      message: 'Panel deleted successfully'
-    });
-
-  } catch (err) {
-    console.error('Error deleting panel:', err);
-
-    res.status(500).json({
-      error: 'Internal server error'
-    });
   }
-});
+);
 
 module.exports = router;
