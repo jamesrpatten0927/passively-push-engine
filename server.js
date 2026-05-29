@@ -405,80 +405,113 @@ app.get(
 SEND PUSH
 */
 
-app.post(
-  "/api/send-notification",
-  authenticateToken,
-  async (req, res) => {
+app.post("/api/send-notification", authenticateToken, async (req, res) => {
 
-    try {
+  console.log("SEND REQUEST RECEIVED");
+  console.log("AUTH USER:", req.user);
+  console.log("BODY:", req.body);
 
-      const {
-        title,
-        body,
-        user_id
-      } = req.body;
+  const {
+    title,
+    body,
+    user_id
+  } = req.body;
 
-      const result = await pool.query(`
-        SELECT *
-        FROM subscribers
-        WHERE user_id = $1
-      `, [user_id]);
+  console.log("REQUEST USER ID:", user_id);
 
-      const payload = JSON.stringify({
-        title:
-          title ||
-          "Passively Notification",
-        body:
-          body ||
-          "New notification"
-      });
+  if (!title || !body || !user_id) {
 
-      let successCount = 0;
+    return res.status(400).json({
+      error: "Missing required fields"
+    });
 
-      for (const sub of result.rows) {
+  }
 
-        const pushSubscription = {
-          endpoint: sub.endpoint,
-          keys: {
-            p256dh: sub.p256dh,
-            auth: sub.auth
-          }
-        };
+  try {
 
-        try {
+    const result = await pool.query(`
+      SELECT *
+      FROM subscribers
+      WHERE user_id = $1
+    `, [user_id]);
 
-          await webpush.sendNotification(
-            pushSubscription,
-            payload
-          );
+    console.log("SUBSCRIBERS FOUND:", result.rows.length);
+    console.log(result.rows);
 
-          successCount++;
+    if (result.rows.length === 0) {
 
-        } catch (err) {
-
-          console.log("FAILED PUSH");
-
-        }
-
-      }
-
-      res.json({
-        success: true,
-        sent: successCount
-      });
-
-    } catch (err) {
-
-      console.error(err);
-
-      res.status(500).json({
-        error: "Push failed"
+      return res.status(404).json({
+        error: "No subscribers found for this user"
       });
 
     }
 
+    const payload = JSON.stringify({
+      title,
+      body
+    });
+
+    let successCount = 0;
+
+    for (const sub of result.rows) {
+
+      const pushSubscription = {
+        endpoint: sub.endpoint,
+        keys: {
+          p256dh: sub.p256dh,
+          auth: sub.auth
+        }
+      };
+
+      try {
+
+        console.log(
+          "ATTEMPTING PUSH:",
+          pushSubscription.endpoint
+        );
+
+        await webpush.sendNotification(
+          pushSubscription,
+          payload
+        );
+
+        successCount++;
+
+      } catch (err) {
+
+        console.error(
+          "WEBPUSH ERROR:",
+          err
+        );
+
+      }
+
+    }
+
+    console.log(
+      "SUCCESS COUNT:",
+      successCount
+    );
+
+    res.json({
+      success: true,
+      sent: successCount
+    });
+
+  } catch (err) {
+
+    console.error(
+      "Error sending notifications:",
+      err
+    );
+
+    res.status(500).json({
+      error: "Push failed"
+    });
+
   }
-);
+
+});
 
 /*
 START SERVER
