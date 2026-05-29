@@ -8,6 +8,7 @@ const jwt = require("jsonwebtoken");
 const { v4: uuidv4 } = require("uuid");
 
 const pool = require("./config/db");
+const panelRoutes = require("./routes/panelRoutes");
 
 const app = express();
 
@@ -26,6 +27,12 @@ app.use(cors({
 app.use(express.json());
 
 app.use(express.static("public"));
+
+/*
+PANEL ROUTES
+*/
+
+app.use("/api/panels", panelRoutes);
 
 /*
 WEB PUSH CONFIG
