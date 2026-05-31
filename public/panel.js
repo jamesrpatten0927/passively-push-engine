@@ -139,7 +139,7 @@
               },
               body: JSON.stringify({
   subscription,
-  panelId: panelId
+  user_id: userId
 })
             }
           );
