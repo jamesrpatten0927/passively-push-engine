@@ -138,10 +138,9 @@
                 "Content-Type": "application/json"
               },
               body: JSON.stringify({
-                subscription,
-                user_id: userId,
-                panel_id: panelId
-              })
+  subscription,
+  panelId: panelId
+})
             }
           );
           const responseData =
