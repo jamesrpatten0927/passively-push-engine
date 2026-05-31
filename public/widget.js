@@ -1,3 +1,4 @@
+alert("NEW WIDGET LOADED");
 console.log(”[PUSH] widget.js loaded”);
 
 (async () => {
