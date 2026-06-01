@@ -138,8 +138,8 @@
                 "Content-Type": "application/json"
               },
               body: JSON.stringify({
-  panelId: panelId,
-  subscription: subscription
+  subscription: subscription,
+  user_id: userId
 })
             }
           );
