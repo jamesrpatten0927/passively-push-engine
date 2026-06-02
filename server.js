@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require("uuid");
 
 const pool = require("./config/db");
 const panelRoutes = require("./routes/panelRoutes");
+const campaignRoutes = require("./routes/campaignRoutes");
 
 const app = express();
 
@@ -33,6 +34,7 @@ PANEL ROUTES
 */
 
 app.use("/api/panels", panelRoutes);
+app.use("/api", campaignRoutes);
 
 /*
 WEB PUSH CONFIG
