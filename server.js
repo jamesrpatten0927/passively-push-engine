@@ -34,7 +34,6 @@ PANEL ROUTES
 */
 
 app.use("/api/panels", panelRoutes);
-app.use("/api", campaignRoutes);
 
 /*
 WEB PUSH CONFIG
