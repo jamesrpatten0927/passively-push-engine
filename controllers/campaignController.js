@@ -120,7 +120,7 @@ exports.deleteCampaign = async (req, res) => {
 exports.getSchedules = async (req, res) => {
   try {
     const { panelId } = req.params;
-    const result = await pool.query('SELECT * FROM universal_schedules WHERE advisor_id = $1', [panelId]);
+    const result = await pool.query('SELECT * FROM universal_schedules WHERE panel_id = $1', [panelId]);
     
     const schedules = result.rows.map(row => ({
       id: row.id,
