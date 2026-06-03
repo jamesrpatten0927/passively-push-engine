@@ -9,7 +9,7 @@ const { v4: uuidv4 } = require("uuid");
 
 const pool = require("./config/db");
 const panelRoutes = require("./routes/panelRoutes");
-const campaignRoutes = require("./routes/campaignRoutes");
+
 
 const app = express();
 
