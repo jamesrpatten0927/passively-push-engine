@@ -3,7 +3,35 @@ const crypto = require('crypto');
 
 exports.createSpotlight = async (req, res) => {
   try {
-    const { userId, title, body, badgeText, buttonText, buttonUrl, status } = req.body;
+    const {
+
+  userId,
+
+  title,
+
+  titleIcon,
+
+  body,
+
+  badgeText,
+
+  badgeIcon,
+
+  buttonText,
+
+  buttonUrl,
+
+  themeColor,
+
+  category,
+
+  status,
+
+  startDateTime,
+
+  endDateTime
+
+} = req.body;
 
     if (!userId || !title || !body) {
       return res.status(400).json({ error: 'userId, title, and body are required' });
@@ -13,11 +41,85 @@ exports.createSpotlight = async (req, res) => {
     const currentStatus = status || 'draft';
 
     const query = `
-      INSERT INTO spotlights (id, user_id, title, body, badge_text, button_text, button_url, status, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
-      RETURNING *;
+      INSERT INTO spotlights (
+
+  id,
+
+  user_id,
+
+  title,
+
+  title_icon,
+
+  body,
+
+  badge_text,
+
+  badge_icon,
+
+  button_text,
+
+  button_url,
+
+  theme_color,
+
+  category,
+
+  status,
+
+  start_date_time,
+
+  end_date_time,
+
+  created_at,
+
+  updated_at
+
+)
+
+VALUES (
+
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
+
+  NOW(),
+
+  NOW()
+
+)
+
+RETURNING *;
     `;
-    const values = [id, userId, title, body, badgeText || '', buttonText || '', buttonUrl || '', currentStatus];
+    const values = [
+
+  id,
+
+  userId,
+
+  title,
+
+  titleIcon || null,
+
+  body,
+
+  badgeText || '',
+
+  badgeIcon || null,
+
+  buttonText || '',
+
+  buttonUrl || '',
+
+  themeColor || null,
+
+  category || null,
+
+  currentStatus,
+
+  startDateTime || null,
+
+  endDateTime || null
+
+];
 
     const result = await db.query(query, values);
 
@@ -31,21 +133,84 @@ exports.createSpotlight = async (req, res) => {
 exports.updateSpotlight = async (req, res) => {
   try {
     const { spotlightId } = req.params;
-    const { title, body, badgeText, buttonText, buttonUrl, status } = req.body;
+    const {
+
+  title,
+
+  titleIcon,
+
+  body,
+
+  badgeText,
+
+  badgeIcon,
+
+  buttonText,
+
+  buttonUrl,
+
+  themeColor,
+
+  category,
+
+  status,
+
+  startDateTime,
+
+  endDateTime
+
+} = req.body
 
     const query = `
       UPDATE spotlights
-      SET title = COALESCE($1, title),
-          body = COALESCE($2, body),
-          badge_text = COALESCE($3, badge_text),
-          button_text = COALESCE($4, button_text),
-          button_url = COALESCE($5, button_url),
-          status = COALESCE($6, status),
-          updated_at = NOW()
-      WHERE id = $7
-      RETURNING *;
+SET
+  title = COALESCE($1,title),
+  title_icon = COALESCE($2,title_icon),
+  body = COALESCE($3,body),
+  badge_text = COALESCE($4,badge_text),
+  badge_icon = COALESCE($5,badge_icon),
+  button_text = COALESCE($6,button_text),
+  button_url = COALESCE($7,button_url),
+  theme_color = COALESCE($8,theme_color),
+  category = COALESCE($9,category),
+  status = COALESCE($10,status),
+  start_date_time = COALESCE($11,start_date_time),
+  end_date_time = COALESCE($12,end_date_time),
+  updated_at = NOW()
+WHERE id = $13
+RETURNING *;
     `;
-    const values = [title, body, badgeText, buttonText, buttonUrl, status, spotlightId];
+    const values = [
+
+  id,
+
+  userId,
+
+  title,
+
+  titleIcon || null,
+
+  body,
+
+  badgeText || '',
+
+  badgeIcon || null,
+
+  buttonText || '',
+
+  buttonUrl || '',
+
+  themeColor || null,
+
+  category || null,
+
+  currentStatus,
+
+  startDateTime || null,
+
+  endDateTime || null
+
+];
 
     const result = await db.query(query, values);
 
