@@ -1,4 +1,4 @@
-const db = require('../db'); // Adjust path to your database module
+const db = require('../config/db'); // Adjust path to your database module
 const crypto = require('crypto');
 
 exports.createSpotlight = async (req, res) => {
