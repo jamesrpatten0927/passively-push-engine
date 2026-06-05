@@ -91,10 +91,6 @@ RETURNING *;
     `;
     const values = [
 
-  id,
-
-  userId,
-
   title,
 
   titleIcon || null,
@@ -113,11 +109,13 @@ RETURNING *;
 
   category || null,
 
-  currentStatus,
+  status || null,
 
   startDateTime || null,
 
-  endDateTime || null
+  endDateTime || null,
+
+  spotlightId
 
 ];
 
@@ -182,10 +180,6 @@ RETURNING *;
     `;
     const values = [
 
-  id,
-
-  userId,
-
   title,
 
   titleIcon || null,
@@ -204,11 +198,13 @@ RETURNING *;
 
   category || null,
 
-  currentStatus,
+  status || null,
 
   startDateTime || null,
 
-  endDateTime || null
+  endDateTime || null,
+
+  spotlightId
 
 ];
 
