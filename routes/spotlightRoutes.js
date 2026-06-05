@@ -18,6 +18,6 @@ router.put('/:spotlightId', spotlightController.updateSpotlight);
 router.delete('/:spotlightId', spotlightController.deleteSpotlight);
 
 // Toggle spotlight status (e.g. active/inactive/draft)
-router.patch('/:spotlightId/status', spotlightController.toggleSpotlightStatus);
+router.patch('/:spotlightId/status', spotlightController.updateSpotlightStatus);
 
 module.exports = router;
