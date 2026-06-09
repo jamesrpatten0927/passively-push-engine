@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require("uuid");
 const pool = require("./config/db");
 const panelRoutes = require("./routes/panelRoutes");
 const spotlightRoutes = require('./routes/spotlightRoutes');
+const leadRoutes = require('./routes/leadRoutes');
 
 
 const app = express();
@@ -34,6 +35,7 @@ PANEL ROUTES
 
 app.use("/api/panels", panelRoutes);
 app.use('/api/spotlights', spotlightRoutes);
+app.use('/api/leads', leadRoutes);
 
 /*
 WEB PUSH CONFIG
