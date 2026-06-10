@@ -2,6 +2,7 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
 const emailService = require('../services/emailService');
 
 const login = async (req, res) => {
@@ -83,25 +84,31 @@ const signup = async (req, res) => {
 
     const verificationToken = crypto.randomBytes(32).toString('hex');
 
-    const insertQuery = `
-      INSERT INTO users (
-        first_name,
-        last_name,
-        email,
-        password_hash,
-        verification_token
-      )
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, email;
-    `;
+    const userId =
+  'user_' +
+  uuidv4().replace(/-/g, '').substring(0, 12);
 
-    const result = await db.query(insertQuery, [
-      firstName,
-      lastName,
-      email.toLowerCase(),
-      hashedPassword,
-      verificationToken
-    ]);
+const insertQuery = `
+  INSERT INTO users (
+    user_id,
+    first_name,
+    last_name,
+    email,
+    password_hash,
+    verification_token
+  )
+  VALUES ($1, $2, $3, $4, $5, $6)
+  RETURNING id, user_id, email;
+`;
+
+const result = await db.query(insertQuery, [
+  userId,
+  firstName,
+  lastName,
+  email.toLowerCase(),
+  hashedPassword,
+  verificationToken
+]);
 
     const newUser = result.rows[0];
 
