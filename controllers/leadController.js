@@ -85,7 +85,7 @@ exports.createLead = async (req, res) => {
     try {
       if (process.env.RESEND_API_KEY) {
         // Fetch owner's email from the users table
-        const userQuery = 'SELECT email FROM users WHERE id = $1';
+        const userQuery = 'SELECT email FROM users WHERE user_id = $1';
         const userResult = await db.query(userQuery, [user_id]);
         
         if (userResult.rows.length > 0 && userResult.rows[0].email) {
