@@ -125,7 +125,7 @@ const result = await db.query(insertQuery, [
       success: true,
       message:
         'Registration successful. Please check your email to verify your account.',
-      user_id: newUser.id
+      user_id: newUser.user_id
     });
   } catch (error) {
     console.error('Signup error:', error);
