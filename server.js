@@ -1,17 +1,14 @@
 const express = require("express");
 const cors = require("cors");
 const webpush = require("web-push");
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const { v4: uuidv4 } = require("uuid");
 
 const pool = require("./config/db");
 const panelRoutes = require("./routes/panelRoutes");
-const spotlightRoutes = require('./routes/spotlightRoutes');
-const leadRoutes = require('./routes/leadRoutes');
-const ownerSubscriptionRoutes = require('./routes/ownerSubscriptionRoutes');
-const authRoutes = require('./routes/authRoutes');
-
+const spotlightRoutes = require("./routes/spotlightRoutes");
+const leadRoutes = require("./routes/leadRoutes");
+const ownerSubscriptionRoutes = require("./routes/ownerSubscriptionRoutes");
+const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 
@@ -28,18 +25,17 @@ app.use(cors({
 }));
 
 app.use(express.json());
-
 app.use(express.static("public"));
 
 /*
-PANEL ROUTES
+API ROUTES
 */
 
 app.use("/api/panels", panelRoutes);
-app.use('/api/spotlights', spotlightRoutes);
-app.use('/api/leads', leadRoutes);
-app.use('/api/owner-subscriptions', ownerSubscriptionRoutes);
-app.use('/api/auth', authRoutes);
+app.use("/api/spotlights", spotlightRoutes);
+app.use("/api/leads", leadRoutes);
+app.use("/api/owner-subscriptions", ownerSubscriptionRoutes);
+app.use("/api/auth", authRoutes);
 
 /*
 WEB PUSH CONFIG
@@ -58,16 +54,6 @@ DATABASE TABLES
 async function createTables() {
 
   try {
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        user_id TEXT UNIQUE NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS subscribers (
@@ -151,162 +137,6 @@ app.get("/health", (req, res) => {
   res.json({
     status: "ok"
   });
-
-});
-
-/*
-SIGNUP
-*/
-
-app.post("/api/signup", async (req, res) => {
-
-  try {
-
-    const {
-      email,
-      password
-    } = req.body;
-
-    if (!email || !password) {
-
-      return res.status(400).json({
-        error: "Missing fields"
-      });
-
-    }
-
-    const existingUser = await pool.query(`
-      SELECT *
-      FROM users
-      WHERE email = $1
-    `, [email]);
-
-    if (existingUser.rows.length > 0) {
-
-      return res.status(400).json({
-        error: "User already exists"
-      });
-
-    }
-
-    const password_hash =
-      await bcrypt.hash(password, 10);
-
-    const user_id =
-      "user_" +
-      uuidv4().replace(/-/g, "").substring(0, 12);
-
-    await pool.query(`
-      INSERT INTO users (
-        user_id,
-        email,
-        password_hash
-      )
-      VALUES ($1, $2, $3)
-    `, [
-      user_id,
-      email,
-      password_hash
-    ]);
-
-    const token = jwt.sign(
-      {
-        user_id,
-        email
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "30d"
-      }
-    );
-
-    res.json({
-      success: true,
-      token,
-      user_id
-    });
-
-  } catch (err) {
-
-    console.error(err);
-
-    res.status(500).json({
-      error: "Signup failed"
-    });
-
-  }
-
-});
-
-/*
-LOGIN
-*/
-
-app.post("/api/login", async (req, res) => {
-
-  try {
-
-    const {
-      email,
-      password
-    } = req.body;
-
-    const result = await pool.query(`
-      SELECT *
-      FROM users
-      WHERE email = $1
-    `, [email]);
-
-    if (result.rows.length === 0) {
-
-      return res.status(401).json({
-        error: "Invalid credentials"
-      });
-
-    }
-
-    const user = result.rows[0];
-
-    const validPassword =
-      await bcrypt.compare(
-        password,
-        user.password_hash
-      );
-
-    if (!validPassword) {
-
-      return res.status(401).json({
-        error: "Invalid credentials"
-      });
-
-    }
-
-    const token = jwt.sign(
-      {
-        user_id: user.user_id,
-        email: user.email
-      },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: "30d"
-      }
-    );
-
-    res.json({
-      success: true,
-      token,
-      user_id: user.user_id
-    });
-
-  } catch (err) {
-
-    console.error(err);
-
-    res.status(500).json({
-      error: "Login failed"
-    });
-
-  }
 
 });
 
@@ -414,17 +244,11 @@ SEND PUSH
 
 app.post("/api/send-notification", authenticateToken, async (req, res) => {
 
-  console.log("SEND REQUEST RECEIVED");
-  console.log("AUTH USER:", req.user);
-  console.log("BODY:", req.body);
-
   const {
     title,
     body,
     user_id
   } = req.body;
-
-  console.log("REQUEST USER ID:", user_id);
 
   if (!title || !body || !user_id) {
 
@@ -441,9 +265,6 @@ app.post("/api/send-notification", authenticateToken, async (req, res) => {
       FROM subscribers
       WHERE user_id = $1
     `, [user_id]);
-
-    console.log("SUBSCRIBERS FOUND:", result.rows.length);
-    console.log(result.rows);
 
     if (result.rows.length === 0) {
 
@@ -472,11 +293,6 @@ app.post("/api/send-notification", authenticateToken, async (req, res) => {
 
       try {
 
-        console.log(
-          "ATTEMPTING PUSH:",
-          pushSubscription.endpoint
-        );
-
         await webpush.sendNotification(
           pushSubscription,
           payload
@@ -486,19 +302,11 @@ app.post("/api/send-notification", authenticateToken, async (req, res) => {
 
       } catch (err) {
 
-        console.error(
-          "WEBPUSH ERROR:",
-          err
-        );
+        console.error("WEBPUSH ERROR:", err);
 
       }
 
     }
-
-    console.log(
-      "SUCCESS COUNT:",
-      successCount
-    );
 
     res.json({
       success: true,
@@ -507,10 +315,7 @@ app.post("/api/send-notification", authenticateToken, async (req, res) => {
 
   } catch (err) {
 
-    console.error(
-      "Error sending notifications:",
-      err
-    );
+    console.error(err);
 
     res.status(500).json({
       error: "Push failed"
