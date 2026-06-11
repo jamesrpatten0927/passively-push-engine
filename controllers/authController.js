@@ -43,7 +43,7 @@ const login = async (req, res) => {
 
     const token = jwt.sign(
       {
-        user_id: user.id,
+        user_id: user.user.id,
         email: user.email
       },
       process.env.JWT_SECRET || 'your-secret-key',
@@ -53,7 +53,7 @@ const login = async (req, res) => {
     res.status(200).json({
       success: true,
       token,
-      user_id: user.id
+      user_id: user.user.id
     });
   } catch (error) {
     console.error('Login error:', error);
