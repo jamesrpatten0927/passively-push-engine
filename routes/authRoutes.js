@@ -36,6 +36,11 @@ const authLimiter = createRateLimiter(15 * 60 * 1000, 20);
 router.post('/login', authLimiter, authController.login);
 router.post('/signup', authLimiter, authController.signup);
 router.post('/verify-email', authController.verifyEmail);
+router.post(
+  '/resend-verification',
+  authLimiter,
+  authController.resendVerification
+);
 router.post('/forgot-password', authLimiter, authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
 
