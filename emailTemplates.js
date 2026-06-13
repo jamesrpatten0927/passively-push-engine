@@ -129,5 +129,6 @@ module.exports = {
     welcomeEmail,
     verifyEmail,
     passwordResetEmail,
-    accountActivatedEmail
+    accountActivatedEmail,
+    emailChangeEmail
 };
