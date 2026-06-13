@@ -424,6 +424,87 @@ const verifyEmailChange = async (req, res) => {
   }
 };
 
+const changePassword = async (req, res) => {
+  try {
+    const {
+      userId,
+      currentPassword,
+      newPassword
+    } = req.body;
+
+    if (
+      !userId ||
+      !currentPassword ||
+      !newPassword
+    ) {
+      return res.status(400).json({
+        error:
+          'User ID, current password and new password are required'
+      });
+    }
+
+    const userResult = await db.query(
+      'SELECT * FROM users WHERE user_id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    const isMatch = await bcrypt.compare(
+      currentPassword,
+      user.password_hash
+    );
+
+    if (!isMatch) {
+      return res.status(401).json({
+        error: 'Current password is incorrect'
+      });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+
+    const hashedPassword =
+      await bcrypt.hash(
+        newPassword,
+        salt
+      );
+
+    await db.query(
+      `
+      UPDATE users
+      SET password_hash = $1
+      WHERE user_id = $2
+      `,
+      [
+        hashedPassword,
+        userId
+      ]
+    );
+
+    res.json({
+      success: true,
+      message:
+        'Password updated successfully'
+    });
+
+  } catch (error) {
+    console.error(
+      'Change password error:',
+      error
+    );
+
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   login,
   signup,
@@ -431,5 +512,6 @@ module.exports = {
   forgotPassword,
   resetPassword,
   changeEmail,
-  verifyEmailChange
+  verifyEmailChange,
+  changePassword
 };
