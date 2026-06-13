@@ -505,6 +505,80 @@ const changePassword = async (req, res) => {
   }
 };
 
+const resendVerification = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        error: 'Email is required'
+      });
+    }
+
+    const userResult = await db.query(
+      `
+      SELECT *
+      FROM users
+      WHERE email = $1
+      `,
+      [email.toLowerCase()]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message:
+          'If an account exists, a verification email has been sent.'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    if (user.is_verified) {
+      return res.status(400).json({
+        error: 'Account is already verified'
+      });
+    }
+
+    const verificationToken =
+      crypto.randomBytes(32).toString('hex');
+
+    await db.query(
+      `
+      UPDATE users
+      SET verification_token = $1
+      WHERE id = $2
+      `,
+      [
+        verificationToken,
+        user.id
+      ]
+    );
+
+    await emailService.sendVerificationEmail(
+      user.email,
+      user.first_name,
+      verificationToken
+    );
+
+    res.json({
+      success: true,
+      message:
+        'Verification email sent successfully'
+    });
+
+  } catch (error) {
+    console.error(
+      'Resend verification error:',
+      error
+    );
+
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   login,
   signup,
