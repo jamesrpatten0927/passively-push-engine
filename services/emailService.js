@@ -88,9 +88,23 @@ const sendAccountActivatedEmail = async (email, name) => {
   );
 };
 
+const sendEmailChangeEmail = async (
+  email,
+  name,
+  token
+) => {
+  return sendEmail(
+    email,
+    'Confirm your new email address',
+    templates.emailChangeEmail(name, token),
+    'Passively <accounts@send.gopassively.com>'
+  );
+};
+
 module.exports = {
   sendWelcomeEmail,
   sendVerificationEmail,
   sendPasswordResetEmail,
-  sendAccountActivatedEmail
+  sendAccountActivatedEmail,
+  sendEmailChangeEmail
 };
