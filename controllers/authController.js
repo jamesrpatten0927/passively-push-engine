@@ -509,6 +509,7 @@ module.exports = {
   login,
   signup,
   verifyEmail,
+  resendVerification,
   forgotPassword,
   resetPassword,
   changeEmail,
