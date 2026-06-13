@@ -291,10 +291,145 @@ const resetPassword = async (req, res) => {
   }
 };
 
+const changeEmail = async (req, res) => {
+  try {
+    const { userId, currentPassword, newEmail } = req.body;
+
+    if (!userId || !currentPassword || !newEmail) {
+      return res.status(400).json({
+        error: 'User ID, password, and new email are required'
+      });
+    }
+
+    const userResult = await db.query(
+      'SELECT * FROM users WHERE user_id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    const isMatch = await bcrypt.compare(
+      currentPassword,
+      user.password_hash
+    );
+
+    if (!isMatch) {
+      return res.status(401).json({
+        error: 'Incorrect password'
+      });
+    }
+
+    const emailExists = await db.query(
+      'SELECT id FROM users WHERE email = $1',
+      [newEmail.toLowerCase()]
+    );
+
+    if (emailExists.rows.length > 0) {
+      return res.status(400).json({
+        error: 'Email already in use'
+      });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+
+    const expires = new Date(
+      Date.now() + 60 * 60 * 1000
+    );
+
+    await db.query(
+      `
+      UPDATE users
+      SET pending_email = $1,
+          email_change_token = $2,
+          email_change_expires = $3
+      WHERE user_id = $4
+      `,
+      [
+        newEmail.toLowerCase(),
+        token,
+        expires,
+        userId
+      ]
+    );
+
+    await emailService.sendEmailChangeEmail(
+      newEmail.toLowerCase(),
+      user.first_name,
+      token
+    );
+
+    res.json({
+      success: true,
+      message: 'Verification email sent'
+    });
+
+  } catch (error) {
+    console.error('Change email error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
+const verifyEmailChange = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    const result = await db.query(
+      `
+      SELECT id, pending_email
+      FROM users
+      WHERE email_change_token = $1
+      AND email_change_expires > NOW()
+      `,
+      [token]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({
+        error: 'Invalid or expired token'
+      });
+    }
+
+    const user = result.rows[0];
+
+    await db.query(
+      `
+      UPDATE users
+      SET email = $1,
+          pending_email = NULL,
+          email_change_token = NULL,
+          email_change_expires = NULL
+      WHERE id = $2
+      `,
+      [user.pending_email, user.id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Email updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Verify email change error:', error);
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   login,
   signup,
   verifyEmail,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  changeEmail,
+  verifyEmailChange
 };
