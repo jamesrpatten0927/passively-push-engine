@@ -50,4 +50,10 @@ router.post(
   authController.verifyEmailChange
 );
 
+router.post(
+  '/change-password',
+  authLimiter,
+  authController.changePassword
+);
+
 module.exports = router;
