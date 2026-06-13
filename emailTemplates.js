@@ -116,6 +116,15 @@ const accountActivatedEmail = (name) => getBaseTemplate(`
     <a href="https://account.gopassively.com/login" class="button">Sign In Now</a>
 `);
 
+const emailChangeEmail = (name, token) => getBaseTemplate(`
+    <h1>Confirm Email Change</h1>
+    <p>Hi ${name}, please confirm your new email address.</p>
+
+    <a href="https://account.gopassively.com/verify-email-change?token=${token}" class="button">
+        Confirm Email Change
+    </a>
+`);
+
 module.exports = {
     welcomeEmail,
     verifyEmail,
