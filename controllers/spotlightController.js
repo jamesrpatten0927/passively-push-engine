@@ -109,8 +109,28 @@ RETURNING *;
 exports.updateSpotlight = async (req, res) => {
   try {
     const { spotlightId } = req.params;
-    const { title, titleIcon, body, badgeText, badgeIcon, buttonText, buttonUrl, themeColor, category, status, startDateTime, endDateTime } = req.body;
+    const {
+  title,
+  titleIcon,
+  body,
+  badgeText,
+  badgeIcon,
+  buttonText,
+  buttonUrl,
+  themeColor,
+  category,
+  status,
+  startDateTime,
+  endDateTime,
 
+  spotlightStyle,
+  glowColor,
+  glowIntensity,
+  glowSpread,
+  darkness,
+  animationPreset,
+  backgroundFocusEffect
+} = req.body;
     const start = (startDateTime === "" || startDateTime === undefined) ? null : startDateTime;
     const end = (endDateTime === "" || endDateTime === undefined) ? null : endDateTime;
 
