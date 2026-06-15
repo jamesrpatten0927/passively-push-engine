@@ -128,6 +128,13 @@ exports.updateSpotlight = async (req, res) => {
           status = COALESCE($10, status),
           start_date_time = $11,
           end_date_time = $12,
+          spotlight_style = COALESCE($13, spotlight_style),
+glow_color = COALESCE($14, glow_color),
+glow_intensity = COALESCE($15, glow_intensity),
+glow_spread = COALESCE($16, glow_spread),
+darkness = COALESCE($17, darkness),
+animation_preset = COALESCE($18, animation_preset),
+background_focus_effect = COALESCE($19, background_focus_effect),
           updated_at = NOW()
       WHERE id = $13
       RETURNING *;
