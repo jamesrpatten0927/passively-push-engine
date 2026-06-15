@@ -3,7 +3,29 @@ const crypto = require('crypto');
 
 exports.createSpotlight = async (req, res) => {
   try {
-    const { userId, title, titleIcon, body, badgeText, badgeIcon, buttonText, buttonUrl, themeColor, category, status, startDateTime, endDateTime } = req.body;
+    const {
+  userId,
+  title,
+  titleIcon,
+  body,
+  badgeText,
+  badgeIcon,
+  buttonText,
+  buttonUrl,
+  themeColor,
+  category,
+  status,
+  startDateTime,
+  endDateTime,
+
+  spotlightStyle,
+  glowColor,
+  glowIntensity,
+  glowSpread,
+  darkness,
+  animationPreset,
+  backgroundFocusEffect
+} = req.body;
 
     if (!userId || !title || !body) {
       return res.status(400).json({ error: 'userId, title, and body are required' });
