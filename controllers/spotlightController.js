@@ -72,7 +72,30 @@ VALUES (
 )
 RETURNING *;
     `;
-    const values = [id, userId, title, titleIcon || '', body, badgeText || '', badgeIcon || '', buttonText || '', buttonUrl || '', themeColor || '', category || '', currentStatus, start, end];
+    const values = [
+  id,
+  userId,
+  title,
+  titleIcon || '',
+  body,
+  badgeText || '',
+  badgeIcon || '',
+  buttonText || '',
+  buttonUrl || '',
+  themeColor || '',
+  category || '',
+  currentStatus,
+  start,
+  end,
+
+  spotlightStyle || 'standard',
+  glowColor || null,
+  glowIntensity || 70,
+  glowSpread || 100,
+  darkness || 15,
+  animationPreset || null,
+  backgroundFocusEffect || false
+];
 
     const result = await db.query(query, values);
 
