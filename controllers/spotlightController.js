@@ -136,7 +136,7 @@ darkness = COALESCE($17, darkness),
 animation_preset = COALESCE($18, animation_preset),
 background_focus_effect = COALESCE($19, background_focus_effect),
           updated_at = NOW()
-      WHERE id = $13
+      WHERE id = $20
       RETURNING *;
     `;
     const values = [title, titleIcon, body, badgeText, badgeIcon, buttonText, buttonUrl, themeColor, category, status, start, end, spotlightId];
