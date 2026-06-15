@@ -139,7 +139,30 @@ background_focus_effect = COALESCE($19, background_focus_effect),
       WHERE id = $20
       RETURNING *;
     `;
-    const values = [title, titleIcon, body, badgeText, badgeIcon, buttonText, buttonUrl, themeColor, category, status, start, end, spotlightId];
+    const values = [
+  title,
+  titleIcon,
+  body,
+  badgeText,
+  badgeIcon,
+  buttonText,
+  buttonUrl,
+  themeColor,
+  category,
+  status,
+  start,
+  end,
+
+  spotlightStyle,
+  glowColor,
+  glowIntensity,
+  glowSpread,
+  darkness,
+  animationPreset,
+  backgroundFocusEffect,
+
+  spotlightId
+];
 
     const result = await db.query(query, values);
 
