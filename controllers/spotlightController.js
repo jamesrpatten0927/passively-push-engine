@@ -38,9 +38,39 @@ exports.createSpotlight = async (req, res) => {
     const end = (endDateTime === "" || endDateTime === undefined) ? null : endDateTime;
 
     const query = `
-      INSERT INTO spotlights (id, user_id, title, title_icon, body, badge_text, badge_icon, button_text, button_url, theme_color, category, status, start_date_time, end_date_time, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
-      RETURNING *;
+      INSERT INTO spotlights (
+  id,
+  user_id,
+  title,
+  title_icon,
+  body,
+  badge_text,
+  badge_icon,
+  button_text,
+  button_url,
+  theme_color,
+  category,
+  status,
+  start_date_time,
+  end_date_time,
+
+  spotlight_style,
+  glow_color,
+  glow_intensity,
+  glow_spread,
+  darkness,
+  animation_preset,
+  background_focus_effect,
+
+  created_at,
+  updated_at
+)
+VALUES (
+  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,
+  $15,$16,$17,$18,$19,$20,$21,
+  NOW(),NOW()
+)
+RETURNING *;
     `;
     const values = [id, userId, title, titleIcon || '', body, badgeText || '', badgeIcon || '', buttonText || '', buttonUrl || '', themeColor || '', category || '', currentStatus, start, end];
 
