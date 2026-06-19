@@ -85,6 +85,7 @@ RETURNING *;
   buttonText || '',
   buttonUrl || '',
   themeColor || '',
+  buttonColor || '',
   category || '',
   currentStatus,
   start,
@@ -147,19 +148,20 @@ exports.updateSpotlight = async (req, res) => {
           button_text = COALESCE($6, button_text),
           button_url = COALESCE($7, button_url),
           theme_color = COALESCE($8, theme_color),
-          category = COALESCE($9, category),
-          status = COALESCE($10, status),
-          start_date_time = $11,
-          end_date_time = $12,
-          spotlight_style = COALESCE($13, spotlight_style),
-glow_color = COALESCE($14, glow_color),
-glow_intensity = COALESCE($15, glow_intensity),
-glow_spread = COALESCE($16, glow_spread),
-darkness = COALESCE($17, darkness),
-animation_preset = COALESCE($18, animation_preset),
-background_focus_effect = COALESCE($19, background_focus_effect),
+          button_color = COALESCE($9, theme_color),
+          category = COALESCE($10, category),
+          status = COALESCE($11, status),
+          start_date_time = $12,
+          end_date_time = $13,
+          spotlight_style = COALESCE($14, spotlight_style),
+glow_color = COALESCE($15, glow_color),
+glow_intensity = COALESCE($16, glow_intensity),
+glow_spread = COALESCE($17, glow_spread),
+darkness = COALESCE($18, darkness),
+animation_preset = COALESCE($19, animation_preset),
+background_focus_effect = COALESCE($20, background_focus_effect),
           updated_at = NOW()
-      WHERE id = $20
+      WHERE id = $21
       RETURNING *;
     `;
     const values = [
