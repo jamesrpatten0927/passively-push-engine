@@ -118,6 +118,7 @@ exports.updateSpotlight = async (req, res) => {
   buttonText,
   buttonUrl,
   themeColor,
+  buttonColor,
   category,
   status,
   startDateTime,
