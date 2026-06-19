@@ -148,7 +148,7 @@ exports.updateSpotlight = async (req, res) => {
           button_text = COALESCE($6, button_text),
           button_url = COALESCE($7, button_url),
           theme_color = COALESCE($8, theme_color),
-          button_color = COALESCE($9, theme_color),
+          button_color = COALESCE($9, button_color),
           category = COALESCE($10, category),
           status = COALESCE($11, status),
           start_date_time = $12,
