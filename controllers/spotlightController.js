@@ -13,7 +13,7 @@ exports.createSpotlight = async (req, res) => {
   buttonText,
   buttonUrl,
   themeColor,
-  buttonColor,
+  button_Color,
   category,
   status,
   startDateTime,
