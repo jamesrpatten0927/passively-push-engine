@@ -50,6 +50,7 @@ exports.createSpotlight = async (req, res) => {
   button_text,
   button_url,
   theme_color,
+  buttonColor,
   category,
   status,
   start_date_time,
