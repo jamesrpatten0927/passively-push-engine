@@ -66,4 +66,9 @@ router.get(
   authController.getUserProfile
 );
 
+router.put(
+  '/users/:userId/profile',
+  authController.updateUserProfile
+);
+
 module.exports = router;
