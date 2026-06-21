@@ -580,6 +580,39 @@ const resendVerification = async (req, res) => {
   }
 };
 
+const getUserProfile = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const result = await db.query(
+      `
+      SELECT
+        user_id,
+        first_name,
+        last_name,
+        email
+      FROM users
+      WHERE user_id = $1
+      `,
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Get profile error:', error);
+
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   login,
   signup,
@@ -589,5 +622,6 @@ module.exports = {
   resetPassword,
   changeEmail,
   verifyEmailChange,
-  changePassword
+  changePassword,
+  getUserProfile
 };
