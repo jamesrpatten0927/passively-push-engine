@@ -668,6 +668,41 @@ const updateUserProfile = async (req, res) => {
   }
 };
 
+const updateTimezone = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { timezone } = req.body;
+
+    const result = await db.query(
+      `
+      UPDATE users
+      SET timezone = $1
+      WHERE user_id = $2
+      RETURNING timezone
+      `,
+      [timezone, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      timezone: result.rows[0].timezone
+    });
+
+  } catch (error) {
+    console.error('Update timezone error:', error);
+
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+  }
+};
+
 module.exports = {
   login,
   signup,
@@ -679,5 +714,6 @@ module.exports = {
   verifyEmailChange,
   changePassword,
   getUserProfile,
-  updateUserProfile
+  updateUserProfile,
+  updateTimezone
 };
