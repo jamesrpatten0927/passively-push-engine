@@ -613,6 +613,61 @@ const getUserProfile = async (req, res) => {
   }
 };
 
+const updateUserProfile = async (req, res) => {
+  try {
+
+    const { userId } = req.params;
+
+    const {
+      firstName,
+      lastName
+    } = req.body;
+
+    const result = await db.query(
+      `
+      UPDATE users
+      SET
+        first_name = $1,
+        last_name = $2
+      WHERE user_id = $3
+      RETURNING
+        user_id,
+        first_name,
+        last_name,
+        email
+      `,
+      [
+        firstName,
+        lastName,
+        userId
+      ]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: result.rows[0]
+    });
+
+  } catch (error) {
+
+    console.error(
+      'Update profile error:',
+      error
+    );
+
+    res.status(500).json({
+      error: 'Internal server error'
+    });
+
+  }
+};
+
 module.exports = {
   login,
   signup,
@@ -623,5 +678,6 @@ module.exports = {
   changeEmail,
   verifyEmailChange,
   changePassword,
-  getUserProfile
+  getUserProfile,
+  updateUserProfile
 };
