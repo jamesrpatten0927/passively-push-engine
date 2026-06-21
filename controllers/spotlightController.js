@@ -25,7 +25,9 @@ exports.createSpotlight = async (req, res) => {
   glowSpread,
   darkness,
   animationPreset,
-  backgroundFocusEffect
+  backgroundFocusEffect,
+  showAfterDelay,
+  displayFrequency
 } = req.body;
 
     if (!userId || !title || !body) {
@@ -63,13 +65,15 @@ exports.createSpotlight = async (req, res) => {
   darkness,
   animation_preset,
   background_focus_effect,
-
+  show_after_delay,
+  display_frequency,
+  
   created_at,
   updated_at
 )
 VALUES (
   $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-  $16,$17,$18,$19,$20,$21,$22,
+  $16,$17,$18,$19,$20,$21,$22,$23,$24
   NOW(),NOW()
 )
 RETURNING *;
@@ -97,7 +101,9 @@ RETURNING *;
   glowSpread || 100,
   darkness || 15,
   animationPreset || null,
-  backgroundFocusEffect || false
+  backgroundFocusEffect || false,
+  showAfterDelay ?? 0,
+  displayFrequency || 'every_page_load'
 ];
 
     const result = await db.query(query, values);
@@ -133,7 +139,9 @@ exports.updateSpotlight = async (req, res) => {
   glowSpread,
   darkness,
   animationPreset,
-  backgroundFocusEffect
+  backgroundFocusEffect,
+  showAfterDelay,
+  displayFrequenc
 } = req.body;
     const start = (startDateTime === "" || startDateTime === undefined) ? null : startDateTime;
     const end = (endDateTime === "" || endDateTime === undefined) ? null : endDateTime;
@@ -160,8 +168,10 @@ glow_spread = COALESCE($17, glow_spread),
 darkness = COALESCE($18, darkness),
 animation_preset = COALESCE($19, animation_preset),
 background_focus_effect = COALESCE($20, background_focus_effect),
-          updated_at = NOW()
-      WHERE id = $21
+show_after_delay = COALESCE($21, show_after_delay),
+display_frequency = COALESCE($22, display_frequency),
+updated_at = NOW()
+WHERE id = $23
       RETURNING *;
     `;
     const values = [
@@ -186,6 +196,8 @@ background_focus_effect = COALESCE($20, background_focus_effect),
   darkness,
   animationPreset,
   backgroundFocusEffect,
+  showAfterDelay,
+  displayFrequency,
 
   spotlightId
 ];
