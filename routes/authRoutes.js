@@ -61,4 +61,9 @@ router.post(
   authController.changePassword
 );
 
+router.get(
+  '/users/:userId',
+  authController.getUserProfile
+);
+
 module.exports = router;
