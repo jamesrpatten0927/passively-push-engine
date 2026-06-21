@@ -71,4 +71,9 @@ router.put(
   authController.updateUserProfile
 );
 
+router.put(
+  '/users/:userId/timezone',
+  authController.updateTimezone
+);
+
 module.exports = router;
