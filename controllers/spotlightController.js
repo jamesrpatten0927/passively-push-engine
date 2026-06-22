@@ -141,7 +141,7 @@ exports.updateSpotlight = async (req, res) => {
   animationPreset,
   backgroundFocusEffect,
   showAfterDelay,
-  displayFrequenc
+  displayFrequency
 } = req.body;
     const start = (startDateTime === "" || startDateTime === undefined) ? null : startDateTime;
     const end = (endDateTime === "" || endDateTime === undefined) ? null : endDateTime;
