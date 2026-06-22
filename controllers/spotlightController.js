@@ -106,10 +106,10 @@ RETURNING *;
   darkness || 15,
   animationPreset || null,
   backgroundFocusEffect || false,
-  showAfterDelay ?? 0,
-  displayFrequency || 'every_page_load',
   enableAudienceButton || false,
   audienceButtonText || 'Get Alerts',
+  showAfterDelay ?? 0,
+  displayFrequency || 'every_page_load',
 ];
 
     const result = await db.query(query, values);
