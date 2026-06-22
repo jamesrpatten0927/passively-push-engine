@@ -67,8 +67,8 @@ exports.createSpotlight = async (req, res) => {
   darkness,
   animation_preset,
   background_focus_effect,
-  enableAudienceButton,
-  audienceButtonText,
+  enable_audience_button,
+  audience_button_text,
   show_after_delay,
   display_frequency,
   
@@ -107,7 +107,7 @@ RETURNING *;
   animationPreset || null,
   backgroundFocusEffect || false,
   showAfterDelay ?? 0,
-  displayFrequency || 'every_page_load'
+  displayFrequency || 'every_page_load',
   enableAudienceButton || false,
   audienceButtonText || 'Get Alerts',
 ];
