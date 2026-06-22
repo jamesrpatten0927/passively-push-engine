@@ -26,6 +26,8 @@ exports.createSpotlight = async (req, res) => {
   darkness,
   animationPreset,
   backgroundFocusEffect,
+  enableAudienceButton,
+  audienceButtonText,
   showAfterDelay,
   displayFrequency
 } = req.body;
@@ -65,6 +67,8 @@ exports.createSpotlight = async (req, res) => {
   darkness,
   animation_preset,
   background_focus_effect,
+  enableAudienceButton,
+  audienceButtonText,
   show_after_delay,
   display_frequency,
   
@@ -73,7 +77,7 @@ exports.createSpotlight = async (req, res) => {
 )
 VALUES (
   $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-  $16,$17,$18,$19,$20,$21,$22,$23,$24,
+  $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,
   NOW(),NOW()
 )
 RETURNING *;
@@ -104,6 +108,8 @@ RETURNING *;
   backgroundFocusEffect || false,
   showAfterDelay ?? 0,
   displayFrequency || 'every_page_load'
+  enableAudienceButton || false,
+  audienceButtonText || 'Get Alerts',
 ];
 
     const result = await db.query(query, values);
@@ -140,6 +146,8 @@ exports.updateSpotlight = async (req, res) => {
   darkness,
   animationPreset,
   backgroundFocusEffect,
+  enableAudienceButton,
+  audienceButtonText,
   showAfterDelay,
   displayFrequency
 } = req.body;
@@ -170,8 +178,10 @@ animation_preset = COALESCE($19, animation_preset),
 background_focus_effect = COALESCE($20, background_focus_effect),
 show_after_delay = COALESCE($21, show_after_delay),
 display_frequency = COALESCE($22, display_frequency),
+enable_audience_button = COALESCE($23, enable_audience_button),
+audience_button_text = COALESCE($24, audience_button_text),
 updated_at = NOW()
-WHERE id = $23
+WHERE id = $25
       RETURNING *;
     `;
     const values = [
@@ -198,6 +208,8 @@ WHERE id = $23
   backgroundFocusEffect,
   showAfterDelay,
   displayFrequency,
+  enableAudienceButton,
+  audienceButtonText,
 
   spotlightId
 ];
