@@ -32,8 +32,35 @@ exports.createSpotlight = async (req, res) => {
   displayFrequency
 } = req.body;
 
-    if (!userId || !title || !body) {
-      return res.status(400).json({ error: 'userId, title, and body are required' });
+    if (!userId) {
+
+  return res.status(400).json({
+
+    error: 'userId is required'
+
+  });
+
+}
+
+const hasVisibleContent =
+
+  title ||
+
+  body ||
+
+  badgeText ||
+
+  buttonText ||
+
+  enableAudienceButton;
+
+if (!hasVisibleContent) {
+
+  return res.status(400).json({
+
+    error: 'At least one messaging element is required.'
+
+  });
     }
 
     const id = `spotlight_${crypto.randomBytes(8).toString('hex')}`;
