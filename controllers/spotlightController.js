@@ -50,6 +50,10 @@ const hasVisibleContent =
 
   badgeText ||
 
+  badgeIcon ||
+
+  titleIcon ||
+
   buttonText ||
 
   enableAudienceButton;
@@ -112,9 +116,9 @@ RETURNING *;
     const values = [
   id,
   userId,
-  title,
+  title || null'',
   titleIcon || '',
-  body,
+  body || null'',
   badgeText || '',
   badgeIcon || '',
   buttonText || '',
@@ -152,9 +156,9 @@ exports.updateSpotlight = async (req, res) => {
   try {
     const { spotlightId } = req.params;
     const {
-  title,
+  title ?? null,
   titleIcon,
-  body,
+  body ?? null,
   badgeText,
   badgeIcon,
   buttonText,
@@ -183,13 +187,13 @@ exports.updateSpotlight = async (req, res) => {
 
     const query = `
       UPDATE spotlights
-      SET title = COALESCE($1, title),
-          title_icon = COALESCE($2, title_icon),
-          body = COALESCE($3, body),
-          badge_text = COALESCE($4, badge_text),
-          badge_icon = COALESCE($5, badge_icon),
-          button_text = COALESCE($6, button_text),
-          button_url = COALESCE($7, button_url),
+      SET title = $1, 
+          title_icon = $2,
+          body = $3,
+          badge_text = $4,
+          badge_icon = $5,
+          button_text = $6,
+          button_url = $7,
           theme_color = COALESCE($8, theme_color),
           button_color = COALESCE($9, button_color),
           category = COALESCE($10, category),
