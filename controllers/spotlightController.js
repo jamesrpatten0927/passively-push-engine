@@ -116,9 +116,9 @@ RETURNING *;
     const values = [
   id,
   userId,
-  title || null,
+  title ?? null,
   titleIcon || '',
-  body || null,
+  body ?? null,
   badgeText || '',
   badgeIcon || '',
   buttonText || '',
