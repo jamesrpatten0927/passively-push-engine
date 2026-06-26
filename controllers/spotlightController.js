@@ -116,9 +116,9 @@ RETURNING *;
     const values = [
   id,
   userId,
-  title || null'',
+  title || null,
   titleIcon || '',
-  body || null'',
+  body || null,
   badgeText || '',
   badgeIcon || '',
   buttonText || '',
@@ -156,9 +156,9 @@ exports.updateSpotlight = async (req, res) => {
   try {
     const { spotlightId } = req.params;
     const {
-  title ?? null,
+  title,
   titleIcon,
-  body ?? null,
+  body,
   badgeText,
   badgeIcon,
   buttonText,
@@ -216,9 +216,9 @@ WHERE id = $25
       RETURNING *;
     `;
     const values = [
-  title,
+  title ?? null,
   titleIcon,
-  body,
+  body ?? null,
   badgeText,
   badgeIcon,
   buttonText,
