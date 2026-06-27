@@ -10,6 +10,7 @@ const leadRoutes = require("./routes/leadRoutes");
 const ownerSubscriptionRoutes = require("./routes/ownerSubscriptionRoutes");
 const authRoutes = require("./routes/authRoutes");
 const scanRoutes = require('./routes/scanRoutes');
+const journeyRoutes = require('./routes/journeyRoutes');
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use("/api/leads", leadRoutes);
 app.use("/api/owner-subscriptions", ownerSubscriptionRoutes);
 app.use("/api/auth", authRoutes);
 app.use('/api/scans', scanRoutes);
+app.use('/api/journeys', journeyRoutes);
 
 /*
 WEB PUSH CONFIG
