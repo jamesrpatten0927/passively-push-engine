@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const crypto = require('crypto');
+const id = crypto.randomUUID();
 
 exports.createJourney = async (req, res) => {
   try {
@@ -9,7 +9,9 @@ exports.createJourney = async (req, res) => {
       return res.status(400).json({ error: 'userId and name are required' });
     }
 
-    const id = `journey_${crypto.randomBytes(8).toString('hex')}`;
+    const { randomUUID } = require('crypto');
+
+    const id = randomUUID();
     const stepsJson = JSON.stringify(steps || []);
     const currentStatus = status || 'draft';
 
