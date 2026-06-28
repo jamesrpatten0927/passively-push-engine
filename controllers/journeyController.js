@@ -41,7 +41,7 @@ exports.updateJourney = async (req, res) => {
         name = COALESCE($1, name),
         trigger_type = COALESCE($2, trigger_type),
         trigger_intent = COALESCE($3, trigger_intent),
-        steps = COALESCE($4, steps),
+        steps = COALESCE($4::jsonb, steps),
         status = COALESCE($5, status),
         updated_at = NOW()
       WHERE id = $6
