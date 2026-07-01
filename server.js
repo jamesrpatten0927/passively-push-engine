@@ -11,6 +11,7 @@ const ownerSubscriptionRoutes = require("./routes/ownerSubscriptionRoutes");
 const authRoutes = require("./routes/authRoutes");
 const scanRoutes = require('./routes/scanRoutes');
 const journeyRoutes = require('./routes/journeyRoutes');
+const spotlightEvents = require("./routes/spotlightEvents");
 
 const app = express();
 
