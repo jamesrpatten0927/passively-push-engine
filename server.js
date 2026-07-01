@@ -41,6 +41,7 @@ app.use("/api/owner-subscriptions", ownerSubscriptionRoutes);
 app.use("/api/auth", authRoutes);
 app.use('/api/scans', scanRoutes);
 app.use('/api/journeys', journeyRoutes);
+app.use("/api/spotlight/events", spotlightEvents);
 
 /*
 WEB PUSH CONFIG
