@@ -2,6 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { recordEvent } = require('../controllers/spotlightEventsController');
 
-router.post('/events', recordEvent);
+router.post("/", recordEvent);
 
 module.exports = router;
