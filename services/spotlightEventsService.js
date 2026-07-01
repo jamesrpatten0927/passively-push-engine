@@ -32,7 +32,7 @@ const logSpotlightEvent = async (eventData) => {
     visitor_id || null,
     session_id || null,
     event_type,
-    payload ? JSON.stringify(payload) : null
+    payload || {}
   ];
 
   const result = await pool.query(query, values);
