@@ -1,8 +1,7 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
+const { recordEvent } = require('../controllers/spotlightEventsController');
 
-router.post("/", async (req, res) => {
-
-});
+router.post('/events', recordEvent);
 
 module.exports = router;
