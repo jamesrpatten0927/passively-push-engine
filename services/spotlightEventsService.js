@@ -35,7 +35,7 @@ const logSpotlightEvent = async (eventData) => {
     payload || {}
   ];
 
-  const result = await pool.query(query, values);
+  const result = await db.query(query, values);
   return result.rows[0].id;
 };
 
