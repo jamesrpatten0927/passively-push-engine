@@ -1,4 +1,8 @@
-const db = require('../config/db');
+const { Pool } = require('pg');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 const logSpotlightEvent = async (eventData) => {
   const {
@@ -32,13 +36,24 @@ const logSpotlightEvent = async (eventData) => {
     visitor_id || null,
     session_id || null,
     event_type,
-    payload || {}
+    payload ? JSON.stringify(payload) : null
   ];
 
-  const result = await db.query(query, values);
+  const result = await pool.query(query, values);
   return result.rows[0].id;
 };
 
+const getSpotlightEventsByUser = async (website_id) => {
+  const query = `
+    SELECT * FROM spotlight_events 
+    WHERE website_id = $1 
+    ORDER BY created_at DESC;
+  `;
+  const result = await pool.query(query, [website_id]);
+  return result.rows;
+};
+
 module.exports = {
-  logSpotlightEvent
+  logSpotlightEvent,
+  getSpotlightEventsByUser
 };
