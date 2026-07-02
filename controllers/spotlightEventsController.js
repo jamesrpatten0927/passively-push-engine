@@ -1,4 +1,4 @@
-const { logSpotlightEvent } = require('../services/spotlightEventsService');
+const { logSpotlightEvent, getSpotlightEventsByUser } = require('../services/spotlightEventsService');
 const { EVENT_TYPES, SPOTLIGHT_TYPES } = require('../constants/spotlightEvents');
 
 const recordEvent = async (req, res) => {
@@ -61,6 +61,21 @@ const recordEvent = async (req, res) => {
   }
 };
 
+const getEventsByUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'userId is required' });
+    }
+    const events = await getSpotlightEventsByUser(userId);
+    return res.status(200).json(events);
+  } catch (error) {
+    console.error('Error fetching spotlight events:', error);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+};
+
 module.exports = {
-  recordEvent
+  recordEvent,
+  getEventsByUser
 };
