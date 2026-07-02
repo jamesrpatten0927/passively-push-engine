@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { recordEvent } = require('../controllers/spotlightEventsController');
+const { recordEvent, getEventsByUser } = require('../controllers/spotlightEventsController');
 
-router.post("/", recordEvent);
+router.post('/events', recordEvent);
+router.get('/events/user/:userId', getEventsByUser);
 
 module.exports = router;
