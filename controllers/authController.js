@@ -52,10 +52,11 @@ const login = async (req, res) => {
 );
 
     res.status(200).json({
-      success: true,
-      token,
-      user_id: user.user_id
-    });
+  success: true,
+  token,
+  user_id: user.user_id,
+  role: user.role || 'user'
+});
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Internal server error' });
