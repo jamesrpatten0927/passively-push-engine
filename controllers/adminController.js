@@ -30,7 +30,8 @@ const getUsers = async (req, res) => {
         first_name, 
         last_name, 
         email, 
-        role 
+        role,
+        created_at
       FROM users
       ORDER BY created_at DESC
     `;
