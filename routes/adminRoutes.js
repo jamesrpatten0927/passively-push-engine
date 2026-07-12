@@ -6,4 +6,6 @@ const { requireAdmin } = require('../middleware/authMiddleware');
 router.get('/platform-metrics', requireAdmin, adminController.getPlatformMetrics);
 router.get('/users', requireAdmin, adminController.getUsers);
 
+router.delete('/users/:userId', requireAdmin, adminController.deleteUser);
+
 module.exports = router;
