@@ -12,6 +12,7 @@ const authRoutes = require("./routes/authRoutes");
 const scanRoutes = require('./routes/scanRoutes');
 const journeyRoutes = require('./routes/journeyRoutes');
 const spotlightEvents = require("./routes/spotlightEvents");
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.use("/api/auth", authRoutes);
 app.use('/api/scans', scanRoutes);
 app.use('/api/journeys', journeyRoutes);
 app.use("/api/spotlight/events", spotlightEvents);
+app.use('/api/admin', adminRoutes);
 
 /*
 WEB PUSH CONFIG
