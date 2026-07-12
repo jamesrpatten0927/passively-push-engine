@@ -42,13 +42,14 @@ const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      {
-        user_id: user.user_id,
-        email: user.email
-      },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
-    );
+  {
+    user_id: user.user_id,
+    email: user.email,
+    role: user.role || 'user'
+  },
+  process.env.JWT_SECRET || 'your-secret-key',
+  { expiresIn: '7d' }
+);
 
     res.status(200).json({
       success: true,
