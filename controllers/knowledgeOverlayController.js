@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const { generateId } = require('../utils/idGenerator');
+const crypto = require('crypto');
 
 const getOverlays = async (req, res) => {
   try {
@@ -37,7 +37,7 @@ const createOverlay = async (req, res) => {
   try {
     const { title, slug, summary, body_html, status } = req.body;
     const userId = req.user.user_id;
-    const id = generateId('ko');
+    const id = 'ko_' + crypto.randomUUID().replace(/-/g, '');
     
     const result = await db.query(
       `INSERT INTO knowledge_overlays (id, user_id, title, slug, summary, body_html, status)
