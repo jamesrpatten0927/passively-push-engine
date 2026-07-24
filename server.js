@@ -45,6 +45,7 @@ app.use('/api/scans', scanRoutes);
 app.use('/api/journeys', journeyRoutes);
 app.use("/api/spotlight/events", spotlightEvents);
 app.use('/api/admin', adminRoutes);
+app.use('/api/knowledge-overlays', knowledgeOverlayRoutes);
 
 /*
 WEB PUSH CONFIG
