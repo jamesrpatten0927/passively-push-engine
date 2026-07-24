@@ -13,6 +13,7 @@ const scanRoutes = require('./routes/scanRoutes');
 const journeyRoutes = require('./routes/journeyRoutes');
 const spotlightEvents = require("./routes/spotlightEvents");
 const adminRoutes = require('./routes/adminRoutes');
+const knowledgeOverlayRoutes = require('./routes/knowledgeOverlayRoutes');
 
 const app = express();
 
