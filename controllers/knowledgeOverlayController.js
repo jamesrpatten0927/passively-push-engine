@@ -1,6 +1,41 @@
 const db = require('../config/db');
 const crypto = require('crypto');
 
+// Helper to attach categories to overlays
+const attachCategories = async (overlays) => {
+  if (!overlays || overlays.length === 0) return overlays;
+  
+  const overlayIds = overlays.map(o => o.id);
+  const categoriesResult = await db.query(
+    `SELECT koc.overlay_id, kc.id, kc.name, kc.slug 
+     FROM knowledge_overlay_categories koc
+     JOIN knowledge_categories kc ON koc.category_id = kc.id
+     WHERE koc.overlay_id = ANY($1)`,
+    [overlayIds]
+  );
+  
+  const categoriesByOverlay = {};
+  categoriesResult.rows.forEach(row => {
+    if (!categoriesByOverlay[row.overlay_id]) {
+      categoriesByOverlay[row.overlay_id] = [];
+    }
+    categoriesByOverlay[row.overlay_id].push({
+      id: row.id,
+      name: row.name,
+      slug: row.slug
+    });
+  });
+  
+  return overlays.map(overlay => {
+    const cats = categoriesByOverlay[overlay.id] || [];
+    return {
+      ...overlay,
+      categories: cats,
+      category_ids: cats.map(c => c.id) // Fallback for existing clients
+    };
+  });
+};
+
 const getOverlays = async (req, res) => {
   try {
     const userId = req.user.user_id;
@@ -8,7 +43,8 @@ const getOverlays = async (req, res) => {
       'SELECT * FROM knowledge_overlays WHERE user_id = $1 ORDER BY created_at DESC',
       [userId]
     );
-    res.json(result.rows);
+    const overlays = await attachCategories(result.rows);
+    res.json(overlays);
   } catch (error) {
     console.error('Error fetching overlays:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -26,7 +62,8 @@ const getOverlay = async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Not found' });
     }
-    res.json(result.rows[0]);
+    const overlays = await attachCategories(result.rows);
+    res.json(overlays[0]);
   } catch (error) {
     console.error('Error fetching overlay:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -35,9 +72,12 @@ const getOverlay = async (req, res) => {
 
 const createOverlay = async (req, res) => {
   try {
-    const { title, slug, summary, body_html, status } = req.body;
+    const { title, slug, summary, body_html, status, category_ids } = req.body;
     const userId = req.user.user_id;
     const id = 'ko_' + crypto.randomUUID().replace(/-/g, '');
+    
+    // Begin transaction
+    await db.query('BEGIN');
     
     const result = await db.query(
       `INSERT INTO knowledge_overlays (id, user_id, title, slug, summary, body_html, status)
@@ -45,8 +85,26 @@ const createOverlay = async (req, res) => {
        RETURNING *`,
       [id, userId, title, slug, summary, body_html, status || 'draft']
     );
-    res.status(201).json(result.rows[0]);
+    
+    const overlay = result.rows[0];
+    
+    // Insert categories
+    if (category_ids && Array.isArray(category_ids) && category_ids.length > 0) {
+      for (const catId of category_ids) {
+        const kocId = 'koc_' + crypto.randomUUID().replace(/-/g, '');
+        await db.query(
+          'INSERT INTO knowledge_overlay_categories (id, overlay_id, category_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+          [kocId, id, catId]
+        );
+      }
+    }
+    
+    await db.query('COMMIT');
+    
+    const overlays = await attachCategories([overlay]);
+    res.status(201).json(overlays[0]);
   } catch (error) {
+    await db.query('ROLLBACK');
     console.error('Error creating overlay:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -55,8 +113,10 @@ const createOverlay = async (req, res) => {
 const updateOverlay = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, slug, summary, body_html, status } = req.body;
+    const { title, slug, summary, body_html, status, category_ids } = req.body;
     const userId = req.user.user_id;
+    
+    await db.query('BEGIN');
     
     const result = await db.query(
       `UPDATE knowledge_overlays 
@@ -67,10 +127,30 @@ const updateOverlay = async (req, res) => {
     );
     
     if (result.rows.length === 0) {
+      await db.query('ROLLBACK');
       return res.status(404).json({ error: 'Not found' });
     }
-    res.json(result.rows[0]);
+    
+    const overlay = result.rows[0];
+    
+    // Update categories: delete old, insert new
+    if (category_ids && Array.isArray(category_ids)) {
+      await db.query('DELETE FROM knowledge_overlay_categories WHERE overlay_id = $1', [id]);
+      for (const catId of category_ids) {
+        const kocId = 'koc_' + crypto.randomUUID().replace(/-/g, '');
+        await db.query(
+          'INSERT INTO knowledge_overlay_categories (id, overlay_id, category_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+          [kocId, id, catId]
+        );
+      }
+    }
+    
+    await db.query('COMMIT');
+    
+    const overlays = await attachCategories([overlay]);
+    res.json(overlays[0]);
   } catch (error) {
+    await db.query('ROLLBACK');
     console.error('Error updating overlay:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -81,6 +161,7 @@ const deleteOverlay = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.user_id;
     
+    // Junction table rows are deleted via CASCADE
     const result = await db.query(
       'DELETE FROM knowledge_overlays WHERE id = $1 AND user_id = $2 RETURNING id',
       [id, userId]
@@ -103,7 +184,8 @@ const getPublicOverlays = async (req, res) => {
       'SELECT id, title, slug, summary, body_html, updated_at FROM knowledge_overlays WHERE user_id = $1 AND status = $2 ORDER BY created_at DESC',
       [userId, 'published']
     );
-    res.json(result.rows);
+    const overlays = await attachCategories(result.rows);
+    res.json(overlays);
   } catch (error) {
     console.error('Error fetching public overlays:', error);
     res.status(500).json({ error: 'Internal server error' });
