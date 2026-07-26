@@ -14,6 +14,7 @@ const journeyRoutes = require('./routes/journeyRoutes');
 const spotlightEvents = require("./routes/spotlightEvents");
 const adminRoutes = require('./routes/adminRoutes');
 const knowledgeOverlayRoutes = require('./routes/knowledgeOverlayRoutes');
+const knowledgeCategoryRoutes = require('./routes/knowledgeCategoryRoutes');
 
 const app = express();
 
@@ -46,6 +47,7 @@ app.use('/api/journeys', journeyRoutes);
 app.use("/api/spotlight/events", spotlightEvents);
 app.use('/api/admin', adminRoutes);
 app.use('/api/knowledge-overlays', knowledgeOverlayRoutes);
+app.use('/api/knowledge-categories', knowledgeCategoryRoutes);
 
 /*
 WEB PUSH CONFIG
