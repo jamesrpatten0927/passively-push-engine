@@ -1,5 +1,15 @@
 const db = require('../config/db'); // Adjust path to your database module
 const crypto = require('crypto');
+function formatSpotlightResponse(row) {
+  if (!row) return row;
+
+  return {
+    ...row,
+    sequenceId: row.sequence_id,
+    sequenceName: row.sequence_name,
+    stepNumber: row.step_number
+  };
+}
 
 exports.createSpotlight = async (req, res) => {
   try {
@@ -29,8 +39,12 @@ exports.createSpotlight = async (req, res) => {
   enableAudienceButton,
   audienceButtonText,
   showAfterDelay,
-  displayFrequency
-} = req.body;
+  displayFrequency,
+      
+  sequenceId,
+  sequenceName,
+  stepNumber
+  } = req.body;
 
     if (!userId) {
 
@@ -102,14 +116,19 @@ if (!hasVisibleContent) {
   audience_button_text,
   show_after_delay,
   display_frequency,
-  
-  created_at,
-  updated_at
+
+  sequence_id,
+  sequence_name,
+  step_number,
+
+created_at,
+updated_at
 )
 VALUES (
   $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
   $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,
-  NOW(),NOW()
+$27,$28,$29,
+NOW(),NOW()
 )
 RETURNING *;
     `;
@@ -140,12 +159,16 @@ RETURNING *;
   enableAudienceButton || false,
   audienceButtonText || 'Get Alerts',
   showAfterDelay ?? 0,
-  displayFrequency || 'every_page_load',
+displayFrequency || 'every_page_load',
+
+sequenceId || null,
+sequenceName || null,
+stepNumber || null,
 ];
 
     const result = await db.query(query, values);
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(formatSpotlightResponse(result.rows[0]));
   } catch (error) {
     console.error('Error creating spotlight:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -180,7 +203,11 @@ exports.updateSpotlight = async (req, res) => {
   enableAudienceButton,
   audienceButtonText,
   showAfterDelay,
-  displayFrequency
+  displayFrequency,
+
+  sequenceId,
+  sequenceName,
+  stepNumber
 } = req.body;
     const start = (startDateTime === "" || startDateTime === undefined) ? null : startDateTime;
     const end = (endDateTime === "" || endDateTime === undefined) ? null : endDateTime;
@@ -211,8 +238,13 @@ show_after_delay = COALESCE($21, show_after_delay),
 display_frequency = COALESCE($22, display_frequency),
 enable_audience_button = COALESCE($23, enable_audience_button),
 audience_button_text = COALESCE($24, audience_button_text),
+
+sequence_id = COALESCE($25, sequence_id),
+sequence_name = COALESCE($26, sequence_name),
+step_number = COALESCE($27, step_number),
+
 updated_at = NOW()
-WHERE id = $25
+WHERE id = $28
       RETURNING *;
     `;
     const values = [
@@ -240,9 +272,13 @@ WHERE id = $25
   showAfterDelay,
   displayFrequency,
   enableAudienceButton,
-  audienceButtonText,
+audienceButtonText,
 
-  spotlightId
+sequenceId,
+sequenceName,
+stepNumber,
+
+spotlightId
 ];
 
     const result = await db.query(query, values);
@@ -251,7 +287,7 @@ WHERE id = $25
       return res.status(404).json({ error: 'Spotlight not found' });
     }
 
-    res.status(200).json(result.rows[0]);
+    res.status(200).json(formatSpotlightResponse(result.rows[0]));
   } catch (error) {
     console.error('Error updating spotlight:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -287,7 +323,7 @@ exports.getSpotlight = async (req, res) => {
       return res.status(404).json({ error: 'Spotlight not found' });
     }
 
-    res.status(200).json(result.rows[0]);
+    res.status(200).json(formatSpotlightResponse(result.rows[0]));
   } catch (error) {
     console.error('Error fetching spotlight:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -311,7 +347,7 @@ exports.getUserSpotlights = async (req, res) => {
 
     const result = await db.query(query, values);
 
-    res.status(200).json(result.rows);
+    res.status(200).json(result.rows.map(formatSpotlightResponse));
   } catch (error) {
     console.error('Error fetching user spotlights:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -339,7 +375,7 @@ exports.updateSpotlightStatus = async (req, res) => {
       return res.status(404).json({ error: 'Spotlight not found' });
     }
 
-    res.status(200).json(result.rows[0]);
+    res.status(200).json(formatSpotlightResponse(result.rows[0]));
   } catch (error) {
     console.error('Error toggling spotlight status:', error);
     res.status(500).json({ error: 'Internal server error' });
