@@ -4,11 +4,13 @@ function formatSpotlightResponse(row) {
   if (!row) return row;
 
   return {
-    ...row,
-    sequenceId: row.sequence_id,
-    sequenceName: row.sequence_name,
-    stepNumber: row.step_number
-  };
+  ...row,
+  sequenceId: row.sequence_id,
+  sequenceName: row.sequence_name,
+  stepNumber: row.step_number,
+  ctaActionType: row.cta_action_type,
+  targetKnowledgeOverlayId: row.target_knowledge_overlay_id
+};
 }
 
 exports.createSpotlight = async (req, res) => {
@@ -42,8 +44,11 @@ exports.createSpotlight = async (req, res) => {
   displayFrequency,
       
   sequenceId,
-  sequenceName,
-  stepNumber
+sequenceName,
+stepNumber,
+
+ctaActionType,
+targetKnowledgeOverlayId
   } = req.body;
 
     if (!userId) {
@@ -118,8 +123,11 @@ if (!hasVisibleContent) {
   display_frequency,
 
   sequence_id,
-  sequence_name,
-  step_number,
+sequence_name,
+step_number,
+
+cta_action_type,
+target_knowledge_overlay_id,
 
 created_at,
 updated_at
@@ -128,6 +136,7 @@ VALUES (
   $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
   $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,
 $27,$28,$29,
+$30,$31,
 NOW(),NOW()
 )
 RETURNING *;
@@ -164,6 +173,9 @@ displayFrequency || 'every_page_load',
 sequenceId || null,
 sequenceName || null,
 stepNumber || null,
+
+ctaActionType || null,
+targetKnowledgeOverlayId || null,
 ];
 
     const result = await db.query(query, values);
@@ -206,8 +218,11 @@ exports.updateSpotlight = async (req, res) => {
   displayFrequency,
 
   sequenceId,
-  sequenceName,
-  stepNumber
+sequenceName,
+stepNumber,
+
+ctaActionType,
+targetKnowledgeOverlayId
 } = req.body;
     const start = (startDateTime === "" || startDateTime === undefined) ? null : startDateTime;
     const end = (endDateTime === "" || endDateTime === undefined) ? null : endDateTime;
@@ -243,8 +258,11 @@ sequence_id = COALESCE($25, sequence_id),
 sequence_name = COALESCE($26, sequence_name),
 step_number = COALESCE($27, step_number),
 
+cta_action_type = COALESCE($28, cta_action_type),
+target_knowledge_overlay_id = COALESCE($29, target_knowledge_overlay_id),
+
 updated_at = NOW()
-WHERE id = $28
+WHERE id = $30
       RETURNING *;
     `;
     const values = [
@@ -277,6 +295,9 @@ audienceButtonText,
 sequenceId,
 sequenceName,
 stepNumber,
+
+ctaActionType,
+targetKnowledgeOverlayId,
 
 spotlightId
 ];
