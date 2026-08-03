@@ -10,7 +10,7 @@ function formatSpotlightResponse(row) {
   stepNumber: row.step_number,
   ctaActionType: row.cta_action_type,
   targetKnowledgeOverlayId: row.target_knowledge_overlay_id,
-  primaryButtonStyle: row.primary_button_style
+  primaryButtonStyle: row.primary_button_style,
   pauseDuration: row.pause_duration
 };
 }
