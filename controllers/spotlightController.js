@@ -11,6 +11,7 @@ function formatSpotlightResponse(row) {
   ctaActionType: row.cta_action_type,
   targetKnowledgeOverlayId: row.target_knowledge_overlay_id,
   primaryButtonStyle: row.primary_button_style
+  pauseDuration: row.pause_duration
 };
 }
 
@@ -50,7 +51,9 @@ stepNumber,
 
 ctaActionType,
 targetKnowledgeOverlayId,
-      primaryButtonStyle
+      primaryButtonStyle,
+      pauseDuration,
+      pause_duration
   } = req.body;
 
     if (!userId) {
@@ -87,9 +90,14 @@ if (!hasVisibleContent) {
 
   });
     }
-
+    
     const id = `spotlight_${crypto.randomBytes(8).toString('hex')}`;
     const currentStatus = status || 'draft';
+
+     const finalPauseDuration =
+  pauseDuration !== undefined
+    ? pauseDuration
+    : (pause_duration !== undefined ? pause_duration : 8);
     
     const start = (startDateTime === "" || startDateTime === undefined) ? null : startDateTime;
     const end = (endDateTime === "" || endDateTime === undefined) ? null : endDateTime;
@@ -131,6 +139,7 @@ step_number,
 cta_action_type,
 target_knowledge_overlay_id,
 primary_button_style,
+pause_duration,
 
 created_at,
 updated_at
@@ -180,6 +189,7 @@ stepNumber || null,
 ctaActionType || null,
 targetKnowledgeOverlayId || null,
       primaryButtonStyle || 'button',
+      finalPauseDuration,
 ];
 
     const result = await db.query(query, values);
@@ -227,10 +237,16 @@ stepNumber,
 
 ctaActionType,
 targetKnowledgeOverlayId,
-      primaryButtonStyle
+      primaryButtonStyle,
+      pauseDuration,
+      pause_duration
 } = req.body;
     const start = (startDateTime === "" || startDateTime === undefined) ? null : startDateTime;
     const end = (endDateTime === "" || endDateTime === undefined) ? null : endDateTime;
+    const finalPauseDuration =
+  pauseDuration !== undefined
+    ? pauseDuration
+    : (pause_duration !== undefined ? pause_duration : null);
 
     const query = `
       UPDATE spotlights
@@ -266,9 +282,10 @@ step_number = COALESCE($27, step_number),
 cta_action_type = COALESCE($28, cta_action_type),
 target_knowledge_overlay_id = COALESCE($29, target_knowledge_overlay_id),
 primary_button_style = COALESCE($30, primary_button_style),
+pause_duration = COALESCE($31, pause_duration),
 
 updated_at = NOW()
-WHERE id = $31
+WHERE id = $32
       RETURNING *;
     `;
     const values = [
@@ -305,6 +322,7 @@ stepNumber,
 ctaActionType,
 targetKnowledgeOverlayId,
       primaryButtonStyle,
+      finalPauseDuration,
 
 spotlightId
 ];
