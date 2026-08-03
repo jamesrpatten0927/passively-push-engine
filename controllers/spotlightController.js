@@ -9,7 +9,8 @@ function formatSpotlightResponse(row) {
   sequenceName: row.sequence_name,
   stepNumber: row.step_number,
   ctaActionType: row.cta_action_type,
-  targetKnowledgeOverlayId: row.target_knowledge_overlay_id
+  targetKnowledgeOverlayId: row.target_knowledge_overlay_id,
+  primaryButtonStyle: row.primary_button_style
 };
 }
 
@@ -48,7 +49,8 @@ sequenceName,
 stepNumber,
 
 ctaActionType,
-targetKnowledgeOverlayId
+targetKnowledgeOverlayId,
+      primaryButtonStyle
   } = req.body;
 
     if (!userId) {
@@ -128,6 +130,7 @@ step_number,
 
 cta_action_type,
 target_knowledge_overlay_id,
+primary_button_style,
 
 created_at,
 updated_at
@@ -136,7 +139,7 @@ VALUES (
   $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
   $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,
 $27,$28,$29,
-$30,$31,
+$30,$31,$32,
 NOW(),NOW()
 )
 RETURNING *;
@@ -176,6 +179,7 @@ stepNumber || null,
 
 ctaActionType || null,
 targetKnowledgeOverlayId || null,
+      primaryButtonStyle || 'button',
 ];
 
     const result = await db.query(query, values);
@@ -222,7 +226,8 @@ sequenceName,
 stepNumber,
 
 ctaActionType,
-targetKnowledgeOverlayId
+targetKnowledgeOverlayId,
+      primaryButtonStyle
 } = req.body;
     const start = (startDateTime === "" || startDateTime === undefined) ? null : startDateTime;
     const end = (endDateTime === "" || endDateTime === undefined) ? null : endDateTime;
@@ -260,9 +265,10 @@ step_number = COALESCE($27, step_number),
 
 cta_action_type = COALESCE($28, cta_action_type),
 target_knowledge_overlay_id = COALESCE($29, target_knowledge_overlay_id),
+primary_button_style = COALESCE($30, primary_button_style),
 
 updated_at = NOW()
-WHERE id = $30
+WHERE id = $31
       RETURNING *;
     `;
     const values = [
@@ -298,6 +304,7 @@ stepNumber,
 
 ctaActionType,
 targetKnowledgeOverlayId,
+      primaryButtonStyle,
 
 spotlightId
 ];
