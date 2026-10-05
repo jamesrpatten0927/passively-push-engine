@@ -87,6 +87,15 @@ const getBaseTemplate = (content) => `
 </html>
 `;
 
+const escapeHtml = (value) => {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 const welcomeEmail = (name) => getBaseTemplate(`
     <h1>Welcome to Passively, ${name}!</h1>
     <p>We're thrilled to have you on board. Passively helps you build an audience while you sleep, automating your growth so you can focus on what matters.</p>
@@ -125,10 +134,56 @@ const emailChangeEmail = (name, token) => getBaseTemplate(`
     </a>
 `);
 
+const intentNotificationEmail = (items) => {
+  const rows = items.map((item) => `
+    <div style="
+      text-align: left;
+      padding: 18px 0;
+      border-bottom: 1px solid #333333;
+    ">
+      <div style="
+        color: #a0a0a0;
+        font-size: 14px;
+        line-height: 1.5;
+        margin-bottom: 6px;
+      ">
+        ${escapeHtml(item.question)}
+      </div>
+      <div style="
+        color: #ffffff;
+        font-size: 18px;
+        font-weight: 600;
+        line-height: 1.4;
+      ">
+        ${escapeHtml(item.answer)}
+      </div>
+    </div>
+  `).join('');
+  return getBaseTemplate(`
+    <h1>New Customer Intent</h1>
+    <p style="text-align: left;">
+      Someone just interacted with your Passively experience.
+      Here's what they told you:
+    </p>
+    <div style="margin-top: 10px;">
+      ${rows}
+    </div>
+    <p style="
+      text-align: left;
+      margin-top: 30px;
+      margin-bottom: 0;
+      font-size: 14px;
+    ">
+      They're still anonymous. But now you know what they're dealing with.
+    </p>
+  `);
+};
+
 module.exports = {
-    welcomeEmail,
-    verifyEmail,
-    passwordResetEmail,
-    accountActivatedEmail,
-    emailChangeEmail
+  welcomeEmail,
+  verifyEmail,
+  passwordResetEmail,
+  accountActivatedEmail,
+  emailChangeEmail,
+  intentNotificationEmail
 };
