@@ -86,14 +86,14 @@ const scheduleIntentNotification = ({
         return;
       }
       const userResult = await pool.query(
-        `
-        SELECT email
-        FROM users
-        WHERE id = $1
-        LIMIT 1
-        `,
-        [website_id]
-      );
+  `
+  SELECT email
+  FROM users
+  WHERE user_id = $1
+  LIMIT 1
+  `,
+  [`user_${website_id}`]
+);
       const ownerEmail = userResult.rows[0]?.email;
       if (!ownerEmail) {
         console.warn(
