@@ -101,6 +101,15 @@ const sendEmailChangeEmail = async (
   );
 };
 
+const sendIntentNotificationEmail = async (email, items) => {
+  return sendEmail(
+    email,
+    'New Customer Intent',
+    templates.intentNotificationEmail(items),
+    'Passively <welcome@send.gopassively.com>'
+  );
+};
+
 module.exports = {
   sendWelcomeEmail,
   sendVerificationEmail,
