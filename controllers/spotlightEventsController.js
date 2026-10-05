@@ -16,10 +16,15 @@ const scheduleIntentNotification = ({
   session_id,
   payload
 }) => {
-  const groupKey = getNotificationGroupKey(website_id, session_id, payload);
+  const groupKey = getNotificationGroupKey(
+    website_id,
+    session_id,
+    payload
+  );
   if (notificationTimers.has(groupKey)) {
     return;
   }
+  const windowStart = new Date();
   const timer = setTimeout(async () => {
     notificationTimers.delete(groupKey);
     try {
@@ -39,14 +44,15 @@ const scheduleIntentNotification = ({
             AND event_type = $3
             AND notification_sent = FALSE
             AND payload->>'sequence_id' = $4
-            AND created_at >= NOW() - INTERVAL '60 seconds'
+            AND created_at >= $5
           ORDER BY created_at ASC
           `,
           [
             website_id,
             SPOTLIGHT_TYPES.INTENT_POLL,
             EVENT_TYPES.ANSWERED,
-            sequenceId
+            sequenceId,
+            windowStart
           ]
         );
       } else {
@@ -63,14 +69,15 @@ const scheduleIntentNotification = ({
             AND event_type = $3
             AND notification_sent = FALSE
             AND session_id = $4
-            AND created_at >= NOW() - INTERVAL '60 seconds'
+            AND created_at >= $5
           ORDER BY created_at ASC
           `,
           [
             website_id,
             SPOTLIGHT_TYPES.INTENT_POLL,
             EVENT_TYPES.ANSWERED,
-            session_id
+            session_id,
+            windowStart
           ]
         );
       }
@@ -96,7 +103,10 @@ const scheduleIntentNotification = ({
       }
       const notificationItems = events.map((event) => ({
         question: event.payload?.spotlight_title || 'Intent Poll',
-        answer: event.payload?.answer || event.payload?.option_label || 'Response received'
+        answer:
+          event.payload?.answer ||
+          event.payload?.option_label ||
+          'Response received'
       }));
       const emailSent = await sendIntentNotificationEmail(
         ownerEmail,
@@ -121,7 +131,10 @@ const scheduleIntentNotification = ({
         `Intent notification sent to ${ownerEmail} for ${events.length} response(s).`
       );
     } catch (error) {
-      console.error('Error processing Intent Poll notification:', error);
+      console.error(
+        'Error processing Intent Poll notification:',
+        error
+      );
     }
   }, INTENT_NOTIFICATION_DELAY);
   notificationTimers.set(groupKey, timer);
@@ -140,7 +153,8 @@ const recordEvent = async (req, res) => {
     if (!website_id || !spotlight_id || !spotlight_type || !event_type) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: website_id, spotlight_id, spotlight_type, event_type are required.'
+        error:
+          'Missing required fields: website_id, spotlight_id, spotlight_type, event_type are required.'
       });
     }
     const validEventTypes = Object.values(EVENT_TYPES);
