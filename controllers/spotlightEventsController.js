@@ -1,4 +1,4 @@
-const pool = require('../config/db');
+const pool = require('../db');
 const { logSpotlightEvent, getSpotlightEventsByUser } = require('../services/spotlightEventsService');
 const { sendIntentNotificationEmail } = require('../services/emailService');
 const { EVENT_TYPES, SPOTLIGHT_TYPES } = require('../constants/spotlightEvents');
