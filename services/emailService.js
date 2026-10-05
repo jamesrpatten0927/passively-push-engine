@@ -115,5 +115,6 @@ module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendAccountActivatedEmail,
-  sendEmailChangeEmail
+  sendEmailChangeEmail,
+  sendIntentNotificationEmail
 };
