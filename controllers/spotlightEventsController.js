@@ -1,99 +1,70 @@
 const pool = require('../config/db');
-const { logSpotlightEvent, getSpotlightEventsByUser } = require('../services/spotlightEventsService');
-const { sendIntentNotificationEmail } = require('../services/emailService');
-const { EVENT_TYPES, SPOTLIGHT_TYPES } = require('../constants/spotlightEvents');
-const INTENT_NOTIFICATION_DELAY = 60 * 1000;
+const {
+  logSpotlightEvent,
+  getSpotlightEventsByUser
+} = require('../services/spotlightEventsService');
+const {
+  sendIntentNotificationEmail
+} = require('../services/emailService');
+const {
+  EVENT_TYPES,
+  SPOTLIGHT_TYPES
+} = require('../constants/spotlightEvents');
+const INTENT_NOTIFICATION_DELAY = 5 * 60 * 1000;
 const notificationTimers = new Map();
-const getNotificationGroupKey = (websiteId, sessionId, payload) => {
-  const sequenceId = payload?.sequence_id;
-  if (sequenceId) {
-    return `${websiteId}:sequence:${sequenceId}`;
-  }
+const getNotificationGroupKey = (websiteId, sessionId) => {
   return `${websiteId}:session:${sessionId || 'unknown'}`;
 };
 const scheduleIntentNotification = ({
   website_id,
-  session_id,
-  payload
+  session_id
 }) => {
   const groupKey = getNotificationGroupKey(
     website_id,
-    session_id,
-    payload
+    session_id
   );
-  if (notificationTimers.has(groupKey)) {
-    return;
+  const existingTimer = notificationTimers.get(groupKey);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
   }
-  const windowStart = new Date();
   const timer = setTimeout(async () => {
     notificationTimers.delete(groupKey);
     try {
-      const sequenceId = payload?.sequence_id;
-      let eventsResult;
-      if (sequenceId) {
-        eventsResult = await pool.query(
-          `
-          SELECT
-            id,
-            spotlight_id,
-            payload,
-            created_at
-          FROM spotlight_events
-          WHERE website_id = $1
-            AND spotlight_type = $2
-            AND event_type = $3
-            AND notification_sent = FALSE
-            AND payload->>'sequence_id' = $4
-            AND created_at >= $5
-          ORDER BY created_at ASC
-          `,
-          [
-            website_id,
-            SPOTLIGHT_TYPES.INTENT_POLL,
-            EVENT_TYPES.ANSWERED,
-            sequenceId,
-            windowStart
-          ]
-        );
-      } else {
-        eventsResult = await pool.query(
-          `
-          SELECT
-            id,
-            spotlight_id,
-            payload,
-            created_at
-          FROM spotlight_events
-          WHERE website_id = $1
-            AND spotlight_type = $2
-            AND event_type = $3
-            AND notification_sent = FALSE
-            AND session_id = $4
-            AND created_at >= $5
-          ORDER BY created_at ASC
-          `,
-          [
-            website_id,
-            SPOTLIGHT_TYPES.INTENT_POLL,
-            EVENT_TYPES.ANSWERED,
-            session_id,
-            windowStart
-          ]
-        );
-      }
+      const eventsResult = await pool.query(
+        `
+        SELECT
+          id,
+          spotlight_id,
+          payload,
+          created_at
+        FROM spotlight_events
+        WHERE website_id = $1
+          AND spotlight_type = $2
+          AND event_type = $3
+          AND notification_sent = FALSE
+          AND session_id = $4
+        ORDER BY created_at ASC
+        `,
+        [
+          website_id,
+          SPOTLIGHT_TYPES.INTENT_POLL,
+          EVENT_TYPES.ANSWERED,
+          session_id
+        ]
+      );
       const events = eventsResult.rows;
       if (!events.length) {
         return;
       }
       const userResult = await pool.query(
-  `
-  SELECT email
-  FROM users
-  WHERE user_id = $1
-  LIMIT 1
-  `,
-  [`user_${website_id}`]
-);
+        `
+        SELECT email
+        FROM users
+        WHERE user_id = $1
+        LIMIT 1
+        `,
+        [`user_${website_id}`]
+      );
       const ownerEmail = userResult.rows[0]?.email;
       if (!ownerEmail) {
         console.warn(
@@ -102,7 +73,9 @@ const scheduleIntentNotification = ({
         return;
       }
       const notificationItems = events.map((event) => ({
-        question: event.payload?.spotlight_title || 'Intent Poll',
+        question:
+          event.payload?.spotlight_title ||
+          'Intent Poll',
         answer:
           event.payload?.answer ||
           event.payload?.option_label ||
@@ -118,7 +91,9 @@ const scheduleIntentNotification = ({
         );
         return;
       }
-      const eventIds = events.map((event) => event.id);
+      const eventIds = events.map(
+        (event) => event.id
+      );
       await pool.query(
         `
         UPDATE spotlight_events
@@ -137,7 +112,10 @@ const scheduleIntentNotification = ({
       );
     }
   }, INTENT_NOTIFICATION_DELAY);
-  notificationTimers.set(groupKey, timer);
+  notificationTimers.set(
+    groupKey,
+    timer
+  );
 };
 const recordEvent = async (req, res) => {
   try {
@@ -150,47 +128,61 @@ const recordEvent = async (req, res) => {
       session_id,
       payload
     } = req.body;
-    if (!website_id || !spotlight_id || !spotlight_type || !event_type) {
+    if (
+      !website_id ||
+      !spotlight_id ||
+      !spotlight_type ||
+      !event_type
+    ) {
       return res.status(400).json({
         success: false,
         error:
           'Missing required fields: website_id, spotlight_id, spotlight_type, event_type are required.'
       });
     }
-    const validEventTypes = Object.values(EVENT_TYPES);
+    const validEventTypes =
+      Object.values(EVENT_TYPES);
     if (!validEventTypes.includes(event_type)) {
       return res.status(400).json({
         success: false,
-        error: `Invalid event_type. Must be one of: ${validEventTypes.join(', ')}`
+        error:
+          `Invalid event_type. Must be one of: ${validEventTypes.join(', ')}`
       });
     }
-    const validSpotlightTypes = Object.values(SPOTLIGHT_TYPES);
-    if (!validSpotlightTypes.includes(spotlight_type)) {
+    const validSpotlightTypes =
+      Object.values(SPOTLIGHT_TYPES);
+    if (
+      !validSpotlightTypes.includes(
+        spotlight_type
+      )
+    ) {
       return res.status(400).json({
         success: false,
-        error: `Invalid spotlight_type. Must be one of: ${validSpotlightTypes.join(', ')}`
+        error:
+          `Invalid spotlight_type. Must be one of: ${validSpotlightTypes.join(', ')}`
       });
     }
     console.log(
       `Spotlight Event Received: website_id=${website_id}, spotlight_id=${spotlight_id}, event_type=${event_type}, spotlight_type=${spotlight_type}`
     );
-    const eventId = await logSpotlightEvent({
-      website_id,
-      spotlight_id,
-      spotlight_type,
-      visitor_id,
-      session_id,
-      event_type,
-      payload
-    });
+    const eventId =
+      await logSpotlightEvent({
+        website_id,
+        spotlight_id,
+        spotlight_type,
+        visitor_id,
+        session_id,
+        event_type,
+        payload
+      });
     if (
-      spotlight_type === SPOTLIGHT_TYPES.INTENT_POLL &&
+      spotlight_type ===
+        SPOTLIGHT_TYPES.INTENT_POLL &&
       event_type === EVENT_TYPES.ANSWERED
     ) {
       scheduleIntentNotification({
         website_id,
-        session_id,
-        payload
+        session_id
       });
     }
     return res.status(200).json({
@@ -198,7 +190,10 @@ const recordEvent = async (req, res) => {
       event_id: eventId
     });
   } catch (error) {
-    console.error('Error recording spotlight event:', error);
+    console.error(
+      'Error recording spotlight event:',
+      error
+    );
     return res.status(500).json({
       success: false,
       error: 'Internal server error'
@@ -214,10 +209,14 @@ const getEventsByUser = async (req, res) => {
         error: 'userId is required'
       });
     }
-    const events = await getSpotlightEventsByUser(userId);
+    const events =
+      await getSpotlightEventsByUser(userId);
     return res.status(200).json(events);
   } catch (error) {
-    console.error('Error fetching spotlight events:', error);
+    console.error(
+      'Error fetching spotlight events:',
+      error
+    );
     return res.status(500).json({
       success: false,
       error: 'Internal server error'
