@@ -214,31 +214,3 @@ module.exports = {
   recordEvent,
   getEventsByUser
 };
-
-2. Add one function to emailService.js
-
-Do not replace the whole file. Keep everything you already have.
-
-Add this function after your existing email functions:
-
-:::writing{variant=“standard” id=“74106” title=“Add to emailService.js”}
-
-const sendIntentNotificationEmail = async (email, items) => {
-  return sendEmail(
-    email,
-    'New Customer Intent',
-    templates.intentNotificationEmail(items),
-    'Passively <welcome@send.gopassively.com>'
-  );
-};
-
-Then add sendIntentNotificationEmail to the bottom of your existing module.exports:
-
-module.exports = {
-  sendWelcomeEmail,
-  sendVerificationEmail,
-  sendPasswordResetEmail,
-  sendAccountActivatedEmail,
-  sendEmailChangeEmail,
-  sendIntentNotificationEmail
-};
