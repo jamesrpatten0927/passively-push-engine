@@ -1,17 +1,33 @@
 const db = require('../config/db'); // Adjust path to your database module
 const crypto = require('crypto');
 function formatSpotlightResponse(row) {
+
   if (!row) return row;
 
   return {
-  ...row,
-  sequenceId: row.sequence_id,
-  sequenceName: row.sequence_name,
-  stepNumber: row.step_number,
-  ctaActionType: row.cta_action_type,
-  targetKnowledgeOverlayId: row.target_knowledge_overlay_id,
-  primaryButtonStyle: row.primary_button_style
-};
+
+    ...row,
+
+    sequenceId: row.sequence_id,
+
+    sequenceName: row.sequence_name,
+
+    stepNumber: row.step_number,
+
+    ctaActionType: row.cta_action_type,
+
+    targetKnowledgeOverlayId: row.target_knowledge_overlay_id,
+
+    primaryButtonStyle: row.primary_button_style,
+
+    badgeName: row.badge_name,
+
+    badgeRole: row.badge_role,
+
+    badgePosition: row.badge_position
+
+  };
+
 }
 
 exports.createSpotlight = async (req, res) => {
