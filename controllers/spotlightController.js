@@ -1,202 +1,184 @@
-const db = require('../config/db'); // Adjust path to your database module
+const db = require('../config/db');
 const crypto = require('crypto');
-function formatSpotlightResponse(row) {
 
+function formatSpotlightResponse(row) {
   if (!row) return row;
 
   return {
-
     ...row,
-
     sequenceId: row.sequence_id,
-
     sequenceName: row.sequence_name,
-
     stepNumber: row.step_number,
-
     ctaActionType: row.cta_action_type,
-
     targetKnowledgeOverlayId: row.target_knowledge_overlay_id,
-
     primaryButtonStyle: row.primary_button_style,
-
     badgeName: row.badge_name,
-
     badgeRole: row.badge_role,
-
     badgePosition: row.badge_position
-
   };
-
 }
 
 exports.createSpotlight = async (req, res) => {
   try {
     const {
-  userId,
-  title,
-  titleIcon,
-  body,
-  badgeText,
-  badgeIcon,
-  buttonText,
-  buttonUrl,
-  themeColor,
-  buttonColor,
-  category,
-  status,
-  startDateTime,
-  endDateTime,
-
-  spotlightStyle,
-  glowColor,
-  glowIntensity,
-  glowSpread,
-  darkness,
-  animationPreset,
-  backgroundFocusEffect,
-  enableAudienceButton,
-  audienceButtonText,
-  showAfterDelay,
-  displayFrequency,
-      
-  sequenceId,
-sequenceName,
-stepNumber,
-
-ctaActionType,
-targetKnowledgeOverlayId,
+      userId,
+      title,
+      titleIcon,
+      body,
+      badgeText,
+      badgeIcon,
+      buttonText,
+      buttonUrl,
+      themeColor,
+      buttonColor,
+      category,
+      status,
+      startDateTime,
+      endDateTime,
+      spotlightStyle,
+      glowColor,
+      glowIntensity,
+      glowSpread,
+      darkness,
+      animationPreset,
+      backgroundFocusEffect,
+      enableAudienceButton,
+      audienceButtonText,
+      showAfterDelay,
+      displayFrequency,
+      sequenceId,
+      sequenceName,
+      stepNumber,
+      ctaActionType,
+      targetKnowledgeOverlayId,
       primaryButtonStyle
-  } = req.body;
+    } = req.body;
+
+    const badgeName = req.body.badgeName ?? req.body.badge_name ?? null;
+    const badgeRole = req.body.badgeRole ?? req.body.badge_role ?? null;
+    const badgePosition = req.body.badgePosition ?? req.body.badge_position ?? null;
 
     if (!userId) {
+      return res.status(400).json({
+        error: 'userId is required'
+      });
+    }
 
-  return res.status(400).json({
+    const hasVisibleContent =
+      title ||
+      body ||
+      badgeText ||
+      badgeIcon ||
+      titleIcon ||
+      buttonText ||
+      enableAudienceButton;
 
-    error: 'userId is required'
-
-  });
-
-}
-
-const hasVisibleContent =
-
-  title ||
-
-  body ||
-
-  badgeText ||
-
-  badgeIcon ||
-
-  titleIcon ||
-
-  buttonText ||
-
-  enableAudienceButton;
-
-if (!hasVisibleContent) {
-
-  return res.status(400).json({
-
-    error: 'At least one messaging element is required.'
-
-  });
+    if (!hasVisibleContent) {
+      return res.status(400).json({
+        error: 'At least one messaging element is required.'
+      });
     }
 
     const id = `spotlight_${crypto.randomBytes(8).toString('hex')}`;
     const currentStatus = status || 'draft';
-    
-    const start = (startDateTime === "" || startDateTime === undefined) ? null : startDateTime;
-    const end = (endDateTime === "" || endDateTime === undefined) ? null : endDateTime;
+
+    const start =
+      startDateTime === '' || startDateTime === undefined
+        ? null
+        : startDateTime;
+
+    const end =
+      endDateTime === '' || endDateTime === undefined
+        ? null
+        : endDateTime;
 
     const query = `
       INSERT INTO spotlights (
-  id,
-  user_id,
-  title,
-  title_icon,
-  body,
-  badge_text,
-  badge_icon,
-  button_text,
-  button_url,
-  theme_color,
-  button_color,
-  category,
-  status,
-  start_date_time,
-  end_date_time,
-
-  spotlight_style,
-  glow_color,
-  glow_intensity,
-  glow_spread,
-  darkness,
-  animation_preset,
-  background_focus_effect,
-  enable_audience_button,
-  audience_button_text,
-  show_after_delay,
-  display_frequency,
-
-  sequence_id,
-sequence_name,
-step_number,
-
-cta_action_type,
-target_knowledge_overlay_id,
-primary_button_style,
-
-created_at,
-updated_at
-)
-VALUES (
-  $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-  $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,
-$27,$28,$29,
-$30,$31,$32,
-NOW(),NOW()
-)
-RETURNING *;
+        id,
+        user_id,
+        title,
+        title_icon,
+        body,
+        badge_text,
+        badge_icon,
+        badge_name,
+        badge_role,
+        badge_position,
+        button_text,
+        button_url,
+        theme_color,
+        button_color,
+        category,
+        status,
+        start_date_time,
+        end_date_time,
+        spotlight_style,
+        glow_color,
+        glow_intensity,
+        glow_spread,
+        darkness,
+        animation_preset,
+        background_focus_effect,
+        enable_audience_button,
+        audience_button_text,
+        show_after_delay,
+        display_frequency,
+        sequence_id,
+        sequence_name,
+        step_number,
+        cta_action_type,
+        target_knowledge_overlay_id,
+        primary_button_style,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+        $11, $12, $13, $14, $15, $16, $17, $18,
+        $19, $20, $21, $22, $23, $24, $25, $26,
+        $27, $28, $29, $30, $31, $32, $33, $34,
+        $35, NOW(), NOW()
+      )
+      RETURNING *;
     `;
+
     const values = [
-  id,
-  userId,
-  title ?? null,
-  titleIcon || '',
-  body ?? null,
-  badgeText || '',
-  badgeIcon || '',
-  buttonText || '',
-  buttonUrl || '',
-  themeColor || '',
-  buttonColor || '',
-  category || '',
-  currentStatus,
-  start,
-  end,
-
-  spotlightStyle || 'standard',
-  glowColor || null,
-  glowIntensity || 70,
-  glowSpread || 100,
-  darkness || 15,
-  animationPreset || null,
-  backgroundFocusEffect || false,
-  enableAudienceButton || false,
-  audienceButtonText || 'Get Alerts',
-  showAfterDelay ?? 0,
-displayFrequency || 'every_page_load',
-
-sequenceId || null,
-sequenceName || null,
-stepNumber || null,
-
-ctaActionType || null,
-targetKnowledgeOverlayId || null,
-      primaryButtonStyle || 'button',
-];
+      id,
+      userId,
+      title ?? null,
+      titleIcon || '',
+      body ?? null,
+      badgeText || '',
+      badgeIcon || '',
+      badgeName,
+      badgeRole,
+      badgePosition,
+      buttonText || '',
+      buttonUrl || '',
+      themeColor || '',
+      buttonColor || '',
+      category || '',
+      currentStatus,
+      start,
+      end,
+      spotlightStyle || 'standard',
+      glowColor || null,
+      glowIntensity || 70,
+      glowSpread || 100,
+      darkness || 15,
+      animationPreset || null,
+      backgroundFocusEffect || false,
+      enableAudienceButton || false,
+      audienceButtonText || 'Get Alerts',
+      showAfterDelay ?? 0,
+      displayFrequency || 'every_page_load',
+      sequenceId || null,
+      sequenceName || null,
+      stepNumber || null,
+      ctaActionType || null,
+      targetKnowledgeOverlayId || null,
+      primaryButtonStyle || 'button'
+    ];
 
     const result = await db.query(query, values);
 
@@ -210,47 +192,74 @@ targetKnowledgeOverlayId || null,
 exports.updateSpotlight = async (req, res) => {
   try {
     const { spotlightId } = req.params;
+    const body = req.body || {};
+
     const {
-  title,
-  titleIcon,
-  body,
-  badgeText,
-  badgeIcon,
-  buttonText,
-  buttonUrl,
-  themeColor,
-  buttonColor,
-  category,
-  status,
-  startDateTime,
-  endDateTime,
-
-  spotlightStyle,
-  glowColor,
-  glowIntensity,
-  glowSpread,
-  darkness,
-  animationPreset,
-  backgroundFocusEffect,
-  enableAudienceButton,
-  audienceButtonText,
-  showAfterDelay,
-  displayFrequency,
-
-  sequenceId,
-sequenceName,
-stepNumber,
-
-ctaActionType,
-targetKnowledgeOverlayId,
+      title,
+      titleIcon,
+      body: messageBody,
+      badgeText,
+      badgeIcon,
+      buttonText,
+      buttonUrl,
+      themeColor,
+      buttonColor,
+      category,
+      status,
+      startDateTime,
+      endDateTime,
+      spotlightStyle,
+      glowColor,
+      glowIntensity,
+      glowSpread,
+      darkness,
+      animationPreset,
+      backgroundFocusEffect,
+      enableAudienceButton,
+      audienceButtonText,
+      showAfterDelay,
+      displayFrequency,
+      sequenceId,
+      sequenceName,
+      stepNumber,
+      ctaActionType,
+      targetKnowledgeOverlayId,
       primaryButtonStyle
-} = req.body;
-    const start = (startDateTime === "" || startDateTime === undefined) ? null : startDateTime;
-    const end = (endDateTime === "" || endDateTime === undefined) ? null : endDateTime;
+    } = body;
+
+    const hasOwn = (key) =>
+      Object.prototype.hasOwnProperty.call(body, key);
+
+    const badgeNameProvided = hasOwn('badgeName') || hasOwn('badge_name');
+    const badgeRoleProvided = hasOwn('badgeRole') || hasOwn('badge_role');
+    const badgePositionProvided =
+      hasOwn('badgePosition') || hasOwn('badge_position');
+
+    const badgeName = hasOwn('badgeName')
+      ? body.badgeName
+      : body.badge_name;
+
+    const badgeRole = hasOwn('badgeRole')
+      ? body.badgeRole
+      : body.badge_role;
+
+    const badgePosition = hasOwn('badgePosition')
+      ? body.badgePosition
+      : body.badge_position;
+
+    const start =
+      startDateTime === '' || startDateTime === undefined
+        ? null
+        : startDateTime;
+
+    const end =
+      endDateTime === '' || endDateTime === undefined
+        ? null
+        : endDateTime;
 
     const query = `
       UPDATE spotlights
-      SET title = $1, 
+      SET title = $1,
           title_icon = $2,
           body = $3,
           badge_text = $4,
@@ -264,66 +273,80 @@ targetKnowledgeOverlayId,
           start_date_time = $12,
           end_date_time = $13,
           spotlight_style = COALESCE($14, spotlight_style),
-glow_color = COALESCE($15, glow_color),
-glow_intensity = COALESCE($16, glow_intensity),
-glow_spread = COALESCE($17, glow_spread),
-darkness = COALESCE($18, darkness),
-animation_preset = COALESCE($19, animation_preset),
-background_focus_effect = COALESCE($20, background_focus_effect),
-show_after_delay = COALESCE($21, show_after_delay),
-display_frequency = COALESCE($22, display_frequency),
-enable_audience_button = COALESCE($23, enable_audience_button),
-audience_button_text = COALESCE($24, audience_button_text),
+          glow_color = COALESCE($15, glow_color),
+          glow_intensity = COALESCE($16, glow_intensity),
+          glow_spread = COALESCE($17, glow_spread),
+          darkness = COALESCE($18, darkness),
+          animation_preset = COALESCE($19, animation_preset),
+          background_focus_effect = COALESCE($20, background_focus_effect),
+          show_after_delay = COALESCE($21, show_after_delay),
+          display_frequency = COALESCE($22, display_frequency),
+          enable_audience_button = COALESCE($23, enable_audience_button),
+          audience_button_text = COALESCE($24, audience_button_text),
+          sequence_id = COALESCE($25, sequence_id),
+          sequence_name = COALESCE($26, sequence_name),
+          step_number = COALESCE($27, step_number),
+          cta_action_type = COALESCE($28, cta_action_type),
+          target_knowledge_overlay_id = COALESCE($29, target_knowledge_overlay_id),
+          primary_button_style = COALESCE($30, primary_button_style),
 
-sequence_id = COALESCE($25, sequence_id),
-sequence_name = COALESCE($26, sequence_name),
-step_number = COALESCE($27, step_number),
+          badge_name = CASE
+            WHEN $31 THEN $32
+            ELSE badge_name
+          END,
+          badge_role = CASE
+            WHEN $33 THEN $34
+            ELSE badge_role
+          END,
+          badge_position = CASE
+            WHEN $35 THEN $36
+            ELSE badge_position
+          END,
 
-cta_action_type = COALESCE($28, cta_action_type),
-target_knowledge_overlay_id = COALESCE($29, target_knowledge_overlay_id),
-primary_button_style = COALESCE($30, primary_button_style),
-
-updated_at = NOW()
-WHERE id = $31
+          updated_at = NOW()
+      WHERE id = $37
       RETURNING *;
     `;
+
     const values = [
-  title ?? null,
-  titleIcon,
-  body ?? null,
-  badgeText,
-  badgeIcon,
-  buttonText,
-  buttonUrl,
-  themeColor,
-  buttonColor,
-  category,
-  status,
-  start,
-  end,
-
-  spotlightStyle,
-  glowColor,
-  glowIntensity,
-  glowSpread,
-  darkness,
-  animationPreset,
-  backgroundFocusEffect,
-  showAfterDelay,
-  displayFrequency,
-  enableAudienceButton,
-audienceButtonText,
-
-sequenceId,
-sequenceName,
-stepNumber,
-
-ctaActionType,
-targetKnowledgeOverlayId,
+      title ?? null,
+      titleIcon,
+      messageBody ?? null,
+      badgeText,
+      badgeIcon,
+      buttonText,
+      buttonUrl,
+      themeColor,
+      buttonColor,
+      category,
+      status,
+      start,
+      end,
+      spotlightStyle,
+      glowColor,
+      glowIntensity,
+      glowSpread,
+      darkness,
+      animationPreset,
+      backgroundFocusEffect,
+      showAfterDelay,
+      displayFrequency,
+      enableAudienceButton,
+      audienceButtonText,
+      sequenceId,
+      sequenceName,
+      stepNumber,
+      ctaActionType,
+      targetKnowledgeOverlayId,
       primaryButtonStyle,
-
-spotlightId
-];
+      badgeNameProvided,
+      badgeName ?? null,
+      badgeRoleProvided,
+      badgeRole ?? null,
+      badgePositionProvided,
+      badgePosition ?? null,
+      spotlightId
+    ];
 
     const result = await db.query(query, values);
 
@@ -386,7 +409,7 @@ exports.getUserSpotlights = async (req, res) => {
       query += ' AND status = $2';
       values.push(status);
     }
-    
+
     query += ' ORDER BY created_at DESC;';
 
     const result = await db.query(query, values);
@@ -413,6 +436,7 @@ exports.updateSpotlightStatus = async (req, res) => {
       WHERE id = $2
       RETURNING *;
     `;
+
     const result = await db.query(query, [status, spotlightId]);
 
     if (result.rows.length === 0) {
