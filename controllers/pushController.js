@@ -61,7 +61,7 @@ exports.getSubscribers = async (req, res) => {
 
 exports.sendNotification = async (req, res) => {
   const ownerUserId = req.user.user_id;
-  const { title, body } = req.body;
+  const { title, body, url } = req.body;
 
   if (!title || !body) {
     return res.status(400).json({ error: 'Missing title or body' });
@@ -71,7 +71,7 @@ exports.sendNotification = async (req, res) => {
     const result = await pool.query('SELECT * FROM subscribers WHERE user_id = $1', [ownerUserId]);
     const subscribers = result.rows;
 
-    const payload = JSON.stringify({ title, body });
+    const payload = JSON.stringify({ title, body, url: url || '' });
     
     let successCount = 0;
     let failureCount = 0;
